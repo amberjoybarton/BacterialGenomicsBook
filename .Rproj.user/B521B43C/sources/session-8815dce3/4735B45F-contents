@@ -1,0 +1,5 @@
+library(rtracklayer)
+typhi = readGFF("~/Downloads/ncbi_dataset (8)/ncbi_dataset/data/GCA_000195995.1/typhi.gff")
+typhi = typhi[which(typhi$type == "gene"),]
+nrow(typhi)
+typhi = as.data.frame(typhi)

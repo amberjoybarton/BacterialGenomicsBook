@@ -1,0 +1,50 @@
+Model1 <- read_excel("~/Documents/Model.xlsx")[1:6,]
+Model2 <- read_excel("~/Documents/Model.xlsx", skip = 7)
+Model1$SystemA = as.numeric(Model1$`Salmonella Phage Species 1 (Anti-defense system A)`) + as.numeric(Model1$`Salmonella Phage Species 2 (Anti-defense system A)`)
+Model1$Species1 = as.numeric(Model1$`Salmonella Phage Species 1 (Anti-defense system A)`) + as.numeric(Model1$`Salmonella Phage Species 1 (Anti-defense system B)`)
+
+Model1 = melt(Model1, id.vars = c("Country", "Year"))
+Model2 = melt(Model2, id.vars = c("Country", "Year"))
+ggplot(Model1 , aes(x = Year, y = value, color = variable)) + geom_point()+ geom_line(aes(group = variable)) + facet_wrap(~Country) 
+
+ggplot(Model2 , aes(x = Year, y = value, color = variable)) + geom_point()+ geom_line(aes(group = variable)) + facet_wrap(~Country) 
+
+#Interpolate
+Model1$Dataset = paste(Model1$variable, Model1$Country)
+for(i in unique(Model1$Dataset)){
+  subset = Model1[which(Model1$Dataset == i),]
+  a = approx(subset$Year, y = subset$value, xout = 2011:2017)
+  newsubset = data.frame(Year = a$x, value = a$y, Country = unique(subset$Country), variable = unique(subset$variable))
+  if(i == unique(Model1$Dataset)[1]){interp = newsubset}else{interp = rbind(interp, newsubset)}
+}
+Model1_interp = interp
+
+ggplot(interp , aes(x = Year, y = value, color = variable)) + geom_point()+ geom_line(aes(group = variable)) + facet_wrap(~Country) 
+
+Model2$Dataset = paste(Model2$variable, Model2$Country)
+for(i in unique(Model2$Dataset)){
+  subset = Model2[which(Model2$Dataset == i),]
+  a = approx(subset$Year, y = subset$value, xout = 2011:2017)
+  newsubset = data.frame(Year = a$x, value = a$y, Country = unique(subset$Country), variable = unique(subset$variable))
+  if(i == unique(Model2$Dataset)[1]){interp = newsubset}else{interp = rbind(interp, newsubset)}
+}
+ggplot(interp , aes(x = Year, y = value, color = variable)) + geom_point()+ geom_line(aes(group = variable)) + facet_wrap(~Country) 
+
+#Correlation
+install.packages("lmtest")
+interp$ID = paste(interp$Country, interp$Year)
+Model1_interp$ID = paste(Model1_interp$Country, Model1_interp$Year)
+compare = merge(interp, Model1_interp, by = "ID")
+
+library(lmtest)
+
+ggplot(compare[which(compare$variable.x == "Salmonella phage defence system A" & compare$variable.y == "SystemA"& compare$Country.x == "Country X"),], aes(x = Year.x, y = value.x)) + geom_line() + geom_line(aes(y = value.y))
+
+t = grangertest( compare[which(compare$variable.x == "Salmonella phage defence system A" & compare$variable.y == "SystemA"& compare$Country.x == "Country X"),"value.y"][1:7], compare[which(compare$variable.x == "Salmonella phage defence system A" & compare$variable.y == "SystemA"& compare$Country.x == "Country X"),"value.x"][1:7])
+t
+
+
+
+interp[which(interp$variable == "Salmonella phage defence system A"),]
+system_a = Model1_interp[which(Model1_interp$variable %in% c("Salmonella Phage Species 1 (Anti-defense system A)" ,"Salmonella Phage Species 2 (Anti-defense system A)" )),]
+aggregate(system_a)

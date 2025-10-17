@@ -1,0 +1,54 @@
+library(RNASeqPower)
+
+
+install.packages("ssizeRNA")
+library(ssizeRNA)
+ssizeRNA_single(nGenes = 4079, 
+                pi0 = 0.8,                # proportion of null genes
+                mu = 100,                # average count
+                fdr = 0.05,               # false discovery rate
+                power = 0.8,             # desired power
+                fc = 2, disp = 0.1)
+
+
+ssizeRNA_single(nGenes = 20000, 
+                pi0 = 0.8,                # proportion of null genes
+                mu = 100,                # average count
+                fdr = 0.05,               # false discovery rate
+                power = 0.8,             # desired power
+                fc = 1.5, disp = 0.1)$ssize
+
+
+check.power(m = 6, mu = 100, disp = 0.1, fc = 2, sims = 100, fdr = 0.05, nGenes = 4079, pi0 = 0.8)
+
+check.power(m = 62, mu = 100, disp = 0.1, fc = 1.25, sims = 10, fdr = 0.05, nGenes = 20000, pi0 = 0.8)
+
+ggplot(data.frame(Phage = c("Salmonella phage present", "No Salmonella phage present"), Sick = c(38, 62)), aes(x = Phage, y = Sick)) + geom_bar(stat = "identity") + theme_bw() + theme(panel.grid = element_blank()) + labs(x = "", y = "Diagnosed with enteric fever")
+ggsave("SalmonellaPhagepresentabsent.svg", height = 4, width = 2.5)
+
+
+38/62
+
+
+
+
+
+
+t1 = as.data.frame(T1_and_P1_combined_data[1:37,])
+for(i in 1:ncol(t1)){
+  t1[,i] = as.numeric( t1[,i] )
+}
+
+wilcox.test(t1$`d0 TD...1`, t1$`d0 non-TD...2`)
+library(lsr)
+cohensD(log(t1$`d0 TD...1`+1), log(t1$`d0 non-TD...2` + 1))
+ggplot(t1, aes(x= log(`d0 TD...1` + 1))) + geom_histogram()
+cohensD(t1$, t1$`d0 non-TD...2`)
+cohensD(log(t1$`d4TD...5`+1), log(t1$`d4 non-TD...6` + 1))
+
+#Meets specifications
+cohensD(log(t1$`d7TD...7`+1), log(t1$`d7 non-TD...8` + 1))
+cohensD(log(t1$`d7TD...7`+1), log(t1$`d7 non-TD...8` + 1))
+
+cohensD(log(t1$`d7TD...20`+1), log(t1$`d7 non-TD...21` + 1))
+

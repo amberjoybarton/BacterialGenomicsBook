@@ -1,0 +1,6 @@
+library(ssizeRNA)
+#3 Differential gene expression analysis will be carried out for 4079 protein-coding genes in the S. Paratyphi A genome. For 4079 genes with an average count of 100, dispersion 0.1 and of which 80% do not change, 19 samples are sufficient to achieve 80% power to detect a fold change of 1.5 with false discovery rate 0.05 (ssizeRNA package).
+
+ssizeRNA_single(nGenes = 10000, pi0 = 0.8, m = 200, mu, 0.1, 1.5,
+                up = 0.5, replace = TRUE, fdr = 0.05, power = 0.8, maxN = 35,
+                side = "two-sided", cex.title = 1.15, cex.legend = 1)

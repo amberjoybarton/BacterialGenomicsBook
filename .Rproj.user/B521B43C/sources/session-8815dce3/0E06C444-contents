@@ -1,0 +1,133 @@
+# Alignments
+
+## Reference-based alignments {#refbased}
+
+If you are studying a pathogen with low genetic variation you might prefer to do a reference-based alignment rather than a core-gene alignment. The advantage of this is you can work directly with reads rather than having to build assemblies. [Snippy](https://github.com/tseemann/snippy) is an easy tool to achieve this. 
+
+The easiest way to do this, particularly if you have hundreds rather than thousands of samples, is to create a tab-delimited file with your IDs and the paths to your fastq files, and run snippy-multi. 
+
+```{r, echo = F}
+library(knitr)
+fastq =  c("ERR976479", "ERR351174", "ERR576974", "ERR11850183")
+df = data.frame(ID =fastq, fastq1 = paste0(fastq, "_1.fastq.gz"), fastq2 = paste0(fastq, "_2.fastq.gz"))
+kable(df, col.names = NULL)
+
+```
+
+```{bash, eval = FALSE}
+ref=path/to/reference.fasta
+snippy-multi input.tab --ref $ref > snippyscript.sh
+#Make it executable
+chmod 777 snippyscript.sh
+#Run the script
+./snippyscript.sh
+```
+
+If you have many samples it will take a long time for this script to run. In this case you might want to run snippy on individual samples first using [loops](#loops) then create a reference based alignment.
+
+```{bash, eval = FALSE}
+ref=path/to/reference.fasta
+#Run snippy for individual samples, e.g. using a for loop
+snippy --outdir ERR11850183 --ref $ref --R1 ERR11850183_1.fastq.gz --R2 ERR11850183_2.fastq.gz
+snippy --outdir ERR976479 --ref $ref --R1 ERR976479_1.fastq.gz --R2 ERR976479_2.fastq.gz
+#Create the alignment
+snippy-core --prefix core ERR11850183 ERR976479
+
+```
+
+## Checking coverage {#coverage}
+
+You can check the proportion of low coverage ("N") and zero coverage "-" bases using the [Biostrings]("https://bioconductor.org/packages/release/bioc/html/Biostrings.html") package in R.
+
+```{r, eval = FALSE}
+library(Biostrings)
+#Read in alignment
+alignment = readDNAStringSet("alignment.aln")
+#Calculate frequency of each base
+frequency = as.data.frame(alphabetFrequency(alignment))
+rownames(frequency) = names(alignment)
+#Calculate the percentage of N and - for each sample
+frequency$Percent_missing = 100*(frequency$N + frequency$`-`)/rowSums(frequency)
+#Which samples have over 50% missing?
+rownames(frequency[which(frequency$Percent_missing > 50),])
+#Write the names of good quality samples to a file
+good_quality = rownames(frequency[which(frequency$Percent_missing < 50),])
+cat(good_quality, sep = "\n", file = "good_quality_alignment.txt")
+
+```
+
+## Sub-setting an alignment
+
+There are many cases where you may want to subset an alignment- for example, to exclude samples that are poor quality, or that are very distant from other samples. In addition to your alignment, you need a text file containing a list of samples you want to keep- one per line, e.g. *good_quality_alignment.txt* created in [Check coverage](#coverage). 
+
+```{r, eval = FALSE}
+seqtk subseq alignment.aln good_quality_alignment.txt > goodquality.aln
+
+```
+
+## Detecting recombination
+
+If you create a tree at this point it may be biased by recombination. [Gubbins](https://github.com/nickjcroucher/gubbins) can detect recombinogenic regions in a reference-based alignment and exclude them.
+
+```{bash, eval = FALSE}
+run_gubbins.py alignment.aln
+```
+
+This will give you a .gff file which contains the start and end of each recombination region. 
+
+## Masking regions
+
+Having detected recombination, masking is useful to remove these regions before building a tree. You can use the following commands to convert this to a .bed file, and mask these regions of the genome using bedtools.
+
+```{bash, eval = FALSE}
+#Get co-ordinates from gff file
+awk -v OFS="\t" '{ if($0 !~ /^#/){ print $4, $5 } }' recombination_predictions.gff > coords.txt
+#Extract sequence names from alignment
+grep "^>" alignment.aln | sed 's/^>//' > names.txt
+#Create a bed file with every recombinogenic region for every sequence
+awk -v OFS="\t" 'NR==FNR {names[NR]=$0; n=NR; next} {for (i=1;i<=n;i++) print names[i], $1, $2}' names.txt coords.txt > recombination.bed
+#Mask the alignment
+bedtools maskfasta -fi alignment.aln -bed recombination.bed -fo masked_alignment.aln
+
+```
+
+This will replace the recombinogenic region with "N". You can double check this using the method outlined in [Checking coverage](#coverage).
+
+## Core gene alignments {#coregene}
+
+If you have [created assemblies](#spades) and [annotated them](#prokka) you can create a core gene alignment using [panaroo](https://github.com/gtonkinhill/panaroo). The advantage of this over reference-based alignment is you don't need an extra step to account for recombination, and the output of panaroo is also useful for gene presence/absence, identifying mobile genetic elements, and genome wide association. It can also be used for analysing datasets with high levels of diversity.
+
+The disadvantage is you need to be careful to make sure that the samples share enough genes- this means you must exclude assemblies with very low completeness.
+
+If you have all your gff files in one folder, panaroo is extremely easy to run:
+
+```{bash, eval = FALSE}
+
+panaroo -i *gff -o panaroo_core --clean-mode strict --alignment core
+
+```
+
+This will create the alignment files core_gene_alignment.aln and core_gene_alignment_filtered.aln within the folder panaroo_core.
+
+## SNP alignment {#snpalignment}
+
+The whole-genome alignment files generated in [Reference-based alignments](#refbased) and [Core gene alignments](#coregene) can be very large and difficult to work with. [Snp-sites](#https://github.com/sanger-pathogens/snp-sites) can be used to work out which regions are constant (you will need this for IQTree) and extract SNPs.
+
+```{bash, eval = FALSE}
+#Create SNP-only alignment
+snp-sites alignment.aln -o snps.aln
+#How many sites were constant?
+snp-sites -Cb alignment.aln -o constant
+
+```
+
+## VCF conversion
+
+[Snp-sites](#https://github.com/sanger-pathogens/snp-sites) is also very useful if you need to convert an alignment to VCF format for downstream analysis.
+
+```{bash, eval = FALSE}
+snp-sites alignment.aln -v -o snps.vcf
+
+```
+
+

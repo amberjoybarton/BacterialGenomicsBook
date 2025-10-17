@@ -1,0 +1,798 @@
+#Review of global microbiomes
+setwd("/Users/ab61/Documents/Metagenomes")
+list.files()
+load("/Users/ab61/Documents/Data Analysis/Vibrio2023/treetime_samples/Microbiomefastq.Rdata")
+
+
+#### Existing literature ####
+for(i in list.files(pattern = "xlsx")){
+  if(type == "xlsx"){m = as.data.frame(readxl::read_excel(i, sheet = "Simple"))}
+colnames(m) = c("Sample", "Study", "Country")
+m$Source = i  
+if(i == list.files(pattern = "xlsx")[1]){summary = m}else{summary = rbind(summary, m)}
+}
+
+#Focus at first on those with runs
+non_rr = summary[-grep("RR", summary$Sample),]
+summary = summary[grep("RR", summary$Sample),]
+
+bd = summary[which(summary$Country == "Bangladesh"),]
+table(bd$Source)
+
+
+#Sample IDs to run IDs
+
+
+sampleids = summary[grep("SAM", summary$Sample),]
+#summary = 
+library(rentrez)
+i = "SRR11192680"
+get_srr_from_biosample <- function(biosample_id) {
+  # Step 1: Search BioSample to get UID
+  bs_search <- entrez_search(db = "biosample", term = biosample_id)
+  if (length(bs_search$ids) == 0) return(NULL)
+  
+  # Step 2: Link from biosample UID to SRA UID
+  link <- entrez_link(dbfrom = "biosample", db = "sra", id = bs_search$ids[1])
+  if (length(link$links) == 0) return(NULL)
+  
+  sra_ids <- link$links[[1]]
+  
+  # Step 3: Fetch RunInfo
+  runs <- character()
+  for (sra_id in sra_ids) {
+    sra_summary <- entrez_fetch(db = "sra", id = sra_id, rettype = "runinfo", retmode = "text")
+    run_table <- read.csv(text = sra_summary)
+    runs <- c(runs, run_table$Run)
+  }
+  
+  return(runs)
+}
+get_srr_from_biosample(i)
+
+
+
+length(unique(sampleids$Sample))
+
+for(i in unique(sampleids$Sample)){
+print(i)
+srr_ids = get_srr_from_biosample(i)
+df_repeated <- sampleids[which(sampleids$Sample == i),][rep(1, length(srr_ids)), ]
+df_repeated$Sample = srr_ids
+summary = rbind(summary, df_repeated)
+}
+
+
+
+length(unique(summary[grep("RR", summary$Sample),"Sample"]))
+sort(table(summary[grep("RR", summary$Sample),"Source"]))
+
+
+#SAM
+#Sample names
+#ERS
+#SRS
+
+summary = unique(summary)
+
+
+####NCBI systematic search####
+##(txid408170[Organism] OR txid2705415[Organism]) AND "WGS"[Strategy] AND cluster_public[prop] AND "biomol dna"[Properties] AND "platform illumina"[Properties] AND ("India"[All Fields] OR "Bangladesh"[All Fields]  OR "Afghanistan"[All Fields]  OR "Angola"[All Fields]  OR "Bangladesh"[All Fields]  OR "Benin"[All Fields]  OR "Bhutan"[All Fields]  OR "Burkina Faso"[All Fields]  OR "Burundi"[All Fields]  OR "Cameroon"[All Fields]  OR "China"[All Fields]  OR "Democratic Republic of the Congo"[All Fields]  OR "Dominican Republic"[All Fields]  OR "Ethiopia"[All Fields]  OR "Ghana"[All Fields]  OR "Haiti"[All Fields]  OR "India"[All Fields]  OR "Iran"[All Fields]  OR "Iraq"[All Fields]  OR "Kenya"[All Fields]  OR "Lebanon"[All Fields]  OR "Malawi"[All Fields]  OR "Mozambique"[All Fields]  OR "Myanmar"[All Fields]  OR "Namibia"[All Fields]  OR "Nepal"[All Fields]  OR "Niger"[All Fields]  OR "Nigeria"[All Fields]  OR "Pakistan"[All Fields]  OR "Philippines"[All Fields]  OR "Rwanda"[All Fields]  OR "Somalia"[All Fields]  OR "South Sudan"[All Fields]  OR "Sudan"[All Fields]  OR "Syria"[All Fields]  OR "Tanzania"[All Fields]  OR "Thailand"[All Fields]  OR "Togo"[All Fields]  OR "Uganda"[All Fields]  OR "Yemen"[All Fields]  OR "Zambia"[All Fields]  OR "Zimbabwe"[All Fields] ) 
+
+#(txid749906[Organism]) AND "Homo sapiens"[Host] AND "WGS"[Strategy] AND cluster_public[prop] AND "biomol dna"[Properties] AND "platform illumina"[Properties] AND ("India"[All Fields] OR "Bangladesh"[All Fields]  OR "Afghanistan"[All Fields]  OR "Angola"[All Fields]  OR "Bangladesh"[All Fields]  OR "Benin"[All Fields]  OR "Bhutan"[All Fields]  OR "Burkina Faso"[All Fields]  OR "Burundi"[All Fields]  OR "Cameroon"[All Fields]  OR "China"[All Fields]  OR "Democratic Republic of the Congo"[All Fields]  OR "Dominican Republic"[All Fields]  OR "Ethiopia"[All Fields]  OR "Ghana"[All Fields]  OR "Haiti"[All Fields]  OR "India"[All Fields]  OR "Iran"[All Fields]  OR "Iraq"[All Fields]  OR "Kenya"[All Fields]  OR "Lebanon"[All Fields]  OR "Malawi"[All Fields]  OR "Mozambique"[All Fields]  OR "Myanmar"[All Fields]  OR "Namibia"[All Fields]  OR "Nepal"[All Fields]  OR "Niger"[All Fields]  OR "Nigeria"[All Fields]  OR "Pakistan"[All Fields]  OR "Philippines"[All Fields]  OR "Rwanda"[All Fields]  OR "Somalia"[All Fields]  OR "South Sudan"[All Fields]  OR "Sudan"[All Fields]  OR "Syria"[All Fields]  OR "Tanzania"[All Fields]  OR "Thailand"[All Fields]  OR "Togo"[All Fields]  OR "Uganda"[All Fields]  OR "Yemen"[All Fields]  OR "Zambia"[All Fields]  OR "Zimbabwe"[All Fields] ) 
+
+Cholera_endemic1 <- read.csv("Cholera_endemic_408170_2705415.csv")
+Cholera_endemic2 <- read.csv("Cholera_endemic_749906.csv")
+
+Cholera_endemic = plyr::rbind.fill(Cholera_endemic1, Cholera_endemic2)
+
+sort(table(Cholera_endemic$geo_loc_name_country))
+sort(table(Cholera_endemic$geo_loc_name))
+
+
+Cholera_endemic[which(Cholera_endemic$BioProject == "PRJEB6358"),"geo_loc_name_country"] = "Bangladesh"
+Cholera_endemic = Cholera_endemic[-which(Cholera_endemic$geo_loc_name_country == ""),]
+Cholera_endemic = Cholera_endemic[-which(Cholera_endemic$geo_loc_name_country == "USA"),]
+Cholera_endemic = Cholera_endemic[-which(Cholera_endemic$geo_loc_name_country == "Poland"),]
+Cholera_endemic = Cholera_endemic[-which(Cholera_endemic$geo_loc_name_country == "uncalculated"),]
+Cholera_endemic = Cholera_endemic[-which(Cholera_endemic$geo_loc_name_country == "Denmark"),]
+
+unique(Cholera_endemic[which(Cholera_endemic$geo_loc_name_country == "USA"),c("BioProject", "geo_loc_name")])
+
+#PRJNA747761- Mozambique
+#PRJEB49206- Tanzania, Nepal
+#View(Cholera_endemic[which(Cholera_endemic$BioProject == "PRJNA747761"),])
+
+#Take out PRJEB11419, PRJNA422434, PRJEB1220, PRJEB5224, PRJNA718907
+#Keep PRJEB6358- change to Bangladesh
+
+Cholera_endemic = Cholera_endemic[-which(Cholera_endemic$geo_loc_name_country == "China"),]
+cat(Cholera_endemic$Run, sep = "\n",file = "metagenome_ids.txt")
+library(rentrez)
+library(httr)
+
+
+length(Cholera_endemic[which(Cholera_endemic$geo_loc_name_country == "Bangladesh"),"Run"])
+#Look for Salmonella and then narrow down to what kind
+
+#Non-endemic countries
+# highincome = read.csv("High income.csv")
+# highincome = highincome[which(highincome$geo_loc_name_country %in% c("Australia", "Denmark", "Ireland", "Norway", "Sweden", "United Kingdom")),]
+# samples = which(highincome$geo_loc_name_country == "Denmark")
+# set.seed(1)
+# for(i in c("Australia", "Ireland", "Norway", "Sweden", "United Kingdom")){
+# samples = c(samples, sample(which(highincome$geo_loc_name_country == i), 200))
+# }
+# highincome = highincome[samples,]
+#write.table(highincome, "highincome_subsample.csv")
+highincome = read.table("highincome_subsample.csv")
+
+# uppermid = read.csv("Middle income.csv")
+# table(uppermid$geo_loc_name_country)
+# uppermid = uppermid[which(uppermid$geo_loc_name_country %in% c("Brazil", "Mexico", "Peru", "South Africa", "Turkey")),]
+# samples = which(uppermid$geo_loc_name_country %in% c("Brazil", "Mexico", "Turkey"))
+# samples = c(samples, sample(which(uppermid$geo_loc_name_country =="South Africa"), 400))
+# uppermid = uppermid[samples,]
+#write.table(uppermid, "uppermid_subsample.csv")
+uppermid = read.table("uppermid_subsample.csv")
+
+nonendemic = rbind.fill(highincome, uppermid)
+
+all = rbind.fill(nonendemic, Cholera_endemic)
+
+
+
+#Get urls
+library(httr)
+library(readR)
+get_fastq_urls <- function(accession) {
+  ena_url <- "https://www.ebi.ac.uk/ena/portal/api/filereport"
+  res <- GET(
+    url = ena_url,
+    query = list(
+      accession = accession,
+      result = "read_run",
+      fields = "fastq_ftp",
+      format = "tsv"
+    )
+  )
+  
+  df <- read_tsv(content(res, "text", encoding = "UTF-8"), show_col_types = FALSE)
+  
+  # Check if fastq_ftp exists and is a character
+  if (nrow(df) == 0 || !"fastq_ftp" %in% names(df) || is.na(df$fastq_ftp) || df$fastq_ftp == "") {
+    warning(sprintf("No FASTQ found for %s", accession))
+    return(NULL)
+  }
+  
+  # Coerce to character and split
+  urls <- unlist(strsplit(as.character(df$fastq_ftp), ";"))
+  urls <- paste0("https://", urls)
+  return(urls)
+}
+
+get_fastq_urls(i)
+
+
+all$fastq1= NA
+all$fastq2 = NA
+
+library(readr)
+which(is.na(all$fastq1))
+for(i in which(is.na(all$fastq1))){
+  print(i)
+  url = get_fastq_urls(all$Run[i])
+  if(length(url) == 2){
+    all[i,c("fastq1", "fastq2")] = url}
+  if(length(url) == 1){
+    all[i,c("fastq1")] = url}
+  if(length(url) == 3){
+    all[i,c("fastq1", "fastq2")] = url[grep("_[0-9].fastq.gz", url)]}}
+
+
+#Create script for download
+
+#With piping
+# script = data.frame(script = NA)[0,]
+# for(i in Cholera_endemic$Run[which(!Cholera_endemic$Run %in% s)]){
+#   print(i)
+# fastq1 = as.character(paste0("ftp://ftp.sra.ebi.ac.uk/vol1/fastq/", substr(i, start = 1, stop = 6), "/0", substr(i, start = 10, stop = 11), "/", i,"/", i, "_1.fastq.gz"))
+# fastq2 = as.character(paste0("ftp://ftp.sra.ebi.ac.uk/vol1/fastq/", substr(i, start = 1, stop = 6), "/0", substr(i, start = 10, stop = 11), "/", i,"/", i, "_2.fastq.gz"))
+# command = paste0('kraken2 --db /data/pam/software/kraken2/viral_20250402/k2_viral_20250402 --paired <(wget -qO - ', fastq1, ') <(wget -qO - ',fastq2, ') --gzip-compressed --output /dev/null --report kraken/', i, "_report")
+# script = rbind(script, command)
+# }
+
+#Without piping
+script = data.frame(script = NA)[0,]
+#Cholera_endemic[which(!Cholera_endemic$Run %in% s),"Run"]
+for(i in all$Run){
+  print(i)
+  fastq1 = all[which(all$Run == i),"fastq1"]
+  fastq2 = all[which(all$Run == i),"fastq2"]
+  
+  if(!is.na(fastq1) & !is.na(fastq2)){
+    script = rbind(script, paste0("wget -nc ", fastq1))
+    script = rbind(script, paste0("wget -nc ", fastq2))
+    #script = rbind(script, paste0("kraken2 --db /data/pam/software/kraken2/viral_20250402/k2_viral_20250402 --paired ",  i,"_1.fastq.gz ", i, "_2.fastq.gz --gzip-compressed --output /dev/null --report kraken/", i, "_report"))
+    script = rbind(script, paste0("sylph sketch -1 ", i, "_1.fastq.gz -2 ", i, "_2.fastq.gz -d sketches"))
+    script = rbind(script, paste0("sylph profile vibrio_sylph.syldb sketches/", i, "_1.fastq.gz.paired.sylsp  -t 50 -o sketches/", i, "_results.tsv"))
+    script = rbind(script, paste0("rm " , i,"_1.fastq.gz ", i, "_2.fastq.gz"))
+    }
+  
+  if(!is.na(fastq1) & is.na(fastq2)){
+    script = rbind(script, paste0("wget -nc ", fastq1))
+    #script = rbind(script, paste0("kraken2 --db /data/pam/software/kraken2/viral_20250402/k2_viral_20250402 ",  i,".fastq.gz --gzip-compressed --output /dev/null --report kraken/", i, "_report"))
+    script = rbind(script, paste0("sylph sketch -r ", i, ".fastq.gz -d sketches"))
+    script = rbind(script, paste0("sylph profile vibrio_sylph.syldb sketches/", i, ".fastq.gz.sylsp  -t 50 -o sketches/", i, "_results.tsv"))
+    script = rbind(script, paste0("rm " , i,".fastq.gz")) 
+    script = rbind(script, " ") 
+  }}
+
+
+#Salmonella screen
+script = data.frame(script = NA)[0,]
+#Cholera_endemic[which(!Cholera_endemic$Run %in% s),"Run"]
+for(i in all[which(all$geo_loc_name_country == "Bangladesh"),"Run"]){
+  print(i)
+  fastq1 = all[which(all$Run == i),"fastq1"]
+  fastq2 = all[which(all$Run == i),"fastq2"]
+  
+  if(!is.na(fastq1) & !is.na(fastq2)){
+    script = rbind(script, paste0("wget -nc ", fastq1))
+    script = rbind(script, paste0("wget -nc ", fastq2))
+    #script = rbind(script, paste0("kraken2 --db /data/pam/software/kraken2/viral_20250402/k2_viral_20250402 --paired ",  i,"_1.fastq.gz ", i, "_2.fastq.gz --gzip-compressed --output /dev/null --report kraken/", i, "_report"))
+    script = rbind(script, paste0("sylph sketch -1 ", i, "_1.fastq.gz -2 ", i, "_2.fastq.gz -d sketches"))
+    script = rbind(script, paste0("sylph profile salmonella.syldb sketches/", i, "_1.fastq.gz.paired.sylsp  -t 50 -o sketches/", i, "_results.tsv"))
+    script = rbind(script, paste0("rm " , i,"_1.fastq.gz ", i, "_2.fastq.gz"))
+  }
+  
+  if(!is.na(fastq1) & is.na(fastq2)){
+    script = rbind(script, paste0("wget -nc ", fastq1))
+    #script = rbind(script, paste0("kraken2 --db /data/pam/software/kraken2/viral_20250402/k2_viral_20250402 ",  i,".fastq.gz --gzip-compressed --output /dev/null --report kraken/", i, "_report"))
+    script = rbind(script, paste0("sylph sketch -r ", i, ".fastq.gz -d sketches"))
+    script = rbind(script, paste0("sylph profile salmonella.syldb sketches/", i, ".fastq.gz.sylsp  -t 50 -o sketches/", i, "_results.tsv"))
+    script = rbind(script, paste0("rm " , i,".fastq.gz")) 
+    script = rbind(script, " ") 
+  }}
+
+save(all, file = "Microbiomefastq.Rdata")
+write.table(script, file = "script.txt", row.names = F, col.names = F, quote = F)
+load(file = "Microbiomefastq.Rdata")
+
+
+#Run ariba on those with Salmonella
+script = data.frame(script = NA)[0,]
+#SRR13856697, SRR25011068, SRR28368664, SRR28368672, SRR28368773, SRR6795017
+for(i in c("SRR13856697","SRR25011068","SRR28368664","SRR28368672","SRR28368773","SRR6795017")){
+  print(i)
+  fastq1 = all[which(all$Run == i),"fastq1"]
+  fastq2 = all[which(all$Run == i),"fastq2"]
+  
+  if(!is.na(fastq1) & !is.na(fastq2)){
+    script = rbind(script, paste0("wget -nc ", fastq1))
+    script = rbind(script, paste0("wget -nc ", fastq2))
+    script = rbind(script, paste0("ariba run ../../salmonellagenes ", i, "_1.fastq.gz ", i, "_2.fastq.gz ariba/", i))
+  }
+  
+  if(!is.na(fastq1) & is.na(fastq2)){
+  }}
+
+write.table(script, file = "script_ariba.txt", row.names = F, col.names = F, quote = F)
+
+
+
+#### Other ####
+
+Cholera_endemic[which(Cholera_endemic$Reads > 1000),"Run"]
+
+#Which ones in Bangladesh were looking at cholera?
+#Create a dataframe with descriptions of each project
+Study.descriptions <- read.csv("~/Documents/Metagenomes/Study descriptions.csv", header=T)
+Cholera_endemic = merge(Cholera_endemic, Study.descriptions, by= "BioProject", all.x = T)
+#unique(Cholera_endemic[which(Cholera_endemic$geo_loc_name_country == "Bangladesh"),"BioProject"])
+Cholera_endemic$CholeraStudy = "No"
+Cholera_endemic[apply(Cholera_endemic, 1, function(row) any(grepl("cholera", row, ignore.case = TRUE))), c("CholeraStudy")] = "Yes"
+unique(Cholera_endemic[which(Cholera_endemic$CholeraStudy == "No"),][apply(Cholera_endemic[which(Cholera_endemic$CholeraStudy == "No"),], 1, function(row) any(grepl("diarrh", row, ignore.case = TRUE))), c( "geo_loc_name_country", "Description.y")]) #= "Yes"
+
+
+Cholera_endemic[which(Cholera_endemic$BioProject %in% c("PRJNA976726", "PRJNA668607", "PRJEB9150", "PRJNA608678", "PRJNA782606", "PRJEB6358")),"CholeraStudy"] = "Yes"
+
+Cholera_endemic[apply(Cholera_endemic, 1, function(row) any(grepl("vibrio", row, ignore.case = TRUE))), c("CholeraStudy", "BioProject")]
+
+
+
+#Prelim ICP1
+#Cholera_endemic$Success = "No"
+#Cholera_endemic[which(Cholera_endemic$Run %in% s),"Success"] = "Yes"
+ICP1 <- read.delim("ICP1 (2).txt", header=FALSE)
+library(dplyr)
+ICP1$Sample = gsub("kraken/","", ICP1$V1) %>% gsub("_report.*", "", .)
+ICP1$Percent = as.numeric(gsub(".*_report:", "", ICP1$V1))
+ICP1$Reads = ICP1$V3
+Cholera_endemic = merge(Cholera_endemic, ICP1[,c("Sample", "Reads", "Percent")], by.x = "Run", by.y = "Sample", all.x = T)
+#Cholera_endemic[which(Cholera_endemic$Success == "Yes" & is.na(Cholera_endemic$Percent)),"Percent"] = 0
+#Cholera_endemic[which(Cholera_endemic$Success == "Yes" & is.na(Cholera_endemic$Percent)),"Reads"] = 0
+
+#PRJDB10675. Found that likely subclinical infection with O1
+
+HaveCholera <- read_excel("~/Documents/Data Analysis/Enterobacteria/HaveCholera.xlsx", 
+                          +     col_names = FALSE)
+Cholera_endemic$Cholera = "No cholera"
+Cholera_endemic[which(Cholera_endemic$Run %in% HaveCholera$...1),"Cholera"] = "Cholera"
+
+ggplot(Cholera_endemic, aes(x = geo_loc_name_country, y = Percent, color = Cholera)) + geom_point()  + scale_y_log10() 
+Cholera_endemic[which(Cholera_endemic$Cholera == "Yes"),"geo_loc_name_country"]
+
+cat(Cholera_endemic[which(Cholera_endemic$Reads.y > 1000),"Run"], sep = " ")
+
+table(Cholera_endemic[which(Cholera_endemic$Reads > 1000),"geo_loc_name_country"])
+
+table(Cholera_endemic$Percent >= 0.01, Cholera_endemic$Cholera, Cholera_endemic$geo_loc_name_country)
+
+78/4487
+
+table(Cholera_endemic[which(Cholera_endemic$Percent >= 0.01),"geo_loc_name_country"])
+table(Cholera_endemic[,"geo_loc_name_country"])
+library(httr)
+library(readr)
+
+
+
+viruses<- read.delim("viruses.txt", header=FALSE)
+library(dplyr)
+viruses$Sample = gsub("kraken/","", viruses$V1) %>% gsub("_report.*", "", .)
+viruses$Percent = as.numeric(gsub(".*_report:", "", viruses$V1))
+viruses$Reads = viruses$V3
+colnames(viruses) = paste(colnames(viruses), "viruses", sep = "_")
+Cholera_endemic = merge(Cholera_endemic, viruses[,c("Sample_viruses", "Reads_viruses", "Percent_viruses")], by.x = "Run", by.y = "Sample_viruses", all.x = T)
+
+ggplot(Cholera_endemic[which(Cholera_endemic$CholeraStudy == "No"),], aes(x = geo_loc_name_country, y =log(Percent_viruses))) + geom_boxplot() 
+
+#Categorise LMIC
+sort(unique(Cholera_endemic$geo_loc_name_country))
+Cholera_endemic$LMIC = "Lower-middle"
+Cholera_endemic[which(Cholera_endemic$geo_loc_name_country %in% c("Iran", "Thailand")),"LMIC"] = "Upper-middle"
+Cholera_endemic[which(Cholera_endemic$geo_loc_name_country %in% c("Burkina Faso" , "Cameroon","Ethiopia", "Ghana", "Kenya", "Malawi", "Niger", "Nigeria", "Tanzania", "Uganda", "Zimbabwe")),"LMIC"] = "Low"
+
+
+#Add in UK
+patch = read.delim("/Users/ab61/Documents/Data Analysis/Enterobacteria/Microbiome/Kraken/Patch_kraken_summary.txt")
+ashton2 = read_xlsx("/Users/ab61/Documents/Data Analysis/Enterobacteria/microbiome/Ashton.xlsx", sheet = 28, skip = 2)
+ashton2 = as.data.frame(ashton2)
+patch = merge(patch, ashton2, by.x = "Sample", by.y = "isolate_ID")
+virus_total = patch[which(patch$Domain == "Viruses" & patch$Tax_code == "D"),]
+
+for(i in virus_total$Sample){
+  # virus_total[which(virus_total$Sample == i),"Percentage"] = 100*virus_total[which(virus_total$Sample == i),"Number_rooted"]/patch[which(patch$Sample == i & patch$Name == "root"),"Number_rooted"]
+  
+  virus_total[which(virus_total$Sample == i),"Percentage"] = 100*virus_total[which(virus_total$Sample == i),"Number_rooted"]/sum(patch[which(patch$Sample == i & patch$Name %in% c("root", "unclassified")),"Number_rooted"])
+}
+virus_total$geo_loc_name_country = "UK"
+virus_total$LMIC = "High"
+virus = Cholera_endemic[which(Cholera_endemic$CholeraStudy == "No"),]
+colnames(virus)
+colnames(virus_total)[c(1,2)] = c("Run", "Percent_viruses")
+
+virus = rbind.fill(virus, virus_total[,c("Run", "Percent_viruses", "LMIC", "geo_loc_name_country")])
+ggplot(virus, aes(x = LMIC, y =Percent_viruses)) + geom_boxplot() + scale_y_continuous(trans='log10')
+
+wilcox.test(virus[which(virus$LMIC == "High-income"), "Percent_viruses"], virus[which(virus$LMIC == "Upper-middle"), "Percent_viruses"])
+wilcox.test(virus[which(virus$LMIC == "Upper-middle"), "Percent_viruses"], virus[which(virus$LMIC == "Lower-middle"), "Percent_viruses"])
+wilcox.test(virus[which(virus$LMIC == "Lower-middle"), "Percent_viruses"], virus[which(virus$LMIC == "Low"), "Percent_viruses"])
+
+#Script for redownloaindg those with ICP1
+script = data.frame(script = NA)[0,]
+
+for(i in Cholera_endemic[which(Cholera_endemic$Reads > 1000),"Run"]){
+  print(i)
+  fastq1 = Cholera_endemic[which(Cholera_endemic$Run == i),"fastq1"]
+  fastq2 = Cholera_endemic[which(Cholera_endemic$Run == i),"fastq2"]
+  
+  if(!is.na(fastq1) & !is.na(fastq2)){
+    script = rbind(script, paste0("wget -nc ", fastq1))
+    script = rbind(script, paste0("wget -nc ", fastq2))
+  }
+  
+  if(!is.na(fastq1) & is.na(fastq2)){
+    script = rbind(script, paste0("wget -nc ", fastq1))
+
+  }
+  
+  
+  
+}
+write.table(script, file = "downloadscript.txt", row.names = F, col.names = F, quote = F)
+
+
+Salmonella = read.delim("Salmonella.txt", header = F)
+Salmonella$Sample = gsub("kraken/","", Salmonella$V1) %>% gsub("_report.*", "", .)
+Salmonella$Percent = as.numeric(gsub(".*_report:", "", Salmonella$V1))
+Salmonella$Reads = Salmonella$V3
+Salmonella = Salmonella[which(Salmonella$Percent >= 0.01),]
+Cholera_endemic$Collection_Date
+Salmonella = merge(Salmonella, Cholera_endemic[,c("Run", "geo_loc_name_country", "geo_loc_name_country_continent", "Collection_Date")], by.x = "Sample", by.y = "Run", all.y = T)
+Salmonella = Salmonella[which(Salmonella$V4 == "S1"),]
+Salmonella$V6 =gsub(".*phage ", "", Salmonella$V6)
+
+ggplot(Salmonella, aes(x = geo_loc_name_country, fill = Percent > 0)) + geom_bar()
+
+#Plot overall profile
+library(reshape2)
+common = names(which(sort(table(Salmonella[which(Salmonella$Percent > 0),"V6"])) >= 10))
+
+Salmonellawide  = dcast(Salmonella[which(Salmonella$V6 %in% common),], Sample ~ V6, value.var = "Percent")
+rownames(Salmonellawide) =Salmonellawide$Sample
+Salmonellawide = Salmonellawide[,-1]
+for(i in 1:ncol(Salmonellawide)){
+  Salmonellawide[which(is.na(Salmonellawide[,i])),i] = 0
+   Salmonellawide[,i] = as.numeric(Salmonellawide[,i])
+}
+#pca = prcomp(as.matrix(Salmonellawide))
+library("FactoMineR")
+pca = PCA(as.matrix(Salmonellawide), scale.unit = F, ncp = 5, graph = TRUE)
+fviz_eig(pca)
+fviz_pca_var(pca, col.var = "black")
+fviz_cos2(pca, choice = "var", axes = 1:2)
+
+pr = merge(prcomp(as.matrix(Salmonellawide))$x[,1:4], Cholera_endemic[,c("Run", "geo_loc_name_country")], by.x = "row.names", by.y = "Run")
+ggplot(pr, aes(x = geo_loc_name_country, y = PC)) + geom_point()
+
+library(pheatmap)
+pheatmap(as.matrix(Salmonellawide), scale = "row")
+
+
+ggplot(Salmonella[grep("SW9", Salmonella$V6),], aes(x = geo_loc_name_country, y = Percent)) + geom_point()
+
+SW9 = merge(Salmonellawide, Cholera_endemic[,c("Run", "geo_loc_name_country")], by.x = "row.names", by.y = "Run")
+ggplot(as.data.frame(table(SW9$SW9 >= 0.01, SW9$geo_loc_name_country)), aes(x = Var2, fill = Var1, y = Freq)) + geom_bar(stat = "identity") + coord_flip()
+
+ggplot(as.data.frame(table(SW9$`Vi II-E1` >= 0.01, SW9$geo_loc_name_country)), aes(x = Var2, fill = Var1, y = Freq)) + geom_bar(stat = "identity", position = "fill") + coord_flip()
+
+#Niger vs rest of world
+table(SW9$SW9 >= 0.01, SW9$geo_loc_name_country == "Niger")
+
+
+#100% in Niger, 8% in the rest of the world
+table(SW9$SPN3US >= 0.01, SW9$geo_loc_name_country == "Nepal")
+
+table(SW9$SAP012 >= 0.01, SW9$geo_loc_name_country == "Haiti")
+
+
+ggplot(Salmonella[grep("SW9", Salmonella$V6),], aes(x = geo_loc_name_country_continent, y = Percent)) + geom_point() + geom_boxplot()
+
+
+
+#SW9, 
+library("factoextra")
+pca = prcomp(as.matrix(Salmonellawide))$x[,1:4]
+pca = merge(pca, Cholera_endemic[,c("Run", "geo_loc_name_country")], by.x = "row.names", by.y = "Run")
+
+
+
+
+#Aggregate
+SalmonellaPhages = aggregate(Salmonella$Percent, by = list(Sample = Salmonella$Sample), FUN = sum)
+colnames(SalmonellaPhages)[2] = "SalmonellaPhages"
+
+Cholera_endemic = merge(Cholera_endemic, SalmonellaPhages[,c("Sample", "SalmonellaPhages")], by.x = "Run", by.y = "Sample", all.x = T)
+Cholera_endemic[which(is.na(Cholera_endemic$SalmonellaPhages)), "SalmonellaPhages"] = 0
+
+
+ggplot(Cholera_endemic, aes(x = geo_loc_name_country, fill = SalmonellaPhages > 0)) + geom_bar(position = "fill")
+ggplot(Cholera_endemic[which(Cholera_endemic$geo_loc_name_country %in% c("Pakistan", "Nigeria")),], aes(x = geo_loc_name_country, y = SalmonellaPhages)) + geom_boxplot()
+wilcox.test(Cholera_endemic[which(Cholera_endemic$geo_loc_name_country %in% c("Pakistan")),"SalmonellaPhages"], Cholera_endemic[which(Cholera_endemic$geo_loc_name_country %in% c("Nigeria")),"SalmonellaPhages"])
+
+median(Cholera_endemic[which(Cholera_endemic$geo_loc_name_country %in% c("Pakistan")),"SalmonellaPhages"])
+median(Cholera_endemic[which(Cholera_endemic$geo_loc_name_country %in% c("Nigeria")),"SalmonellaPhages"])
+
+chisq.test(table(Cholera_endemic[which(Cholera_endemic$geo_loc_name_country %in% c("Pakistan", "Nigeria")),"geo_loc_name_country"] ,Cholera_endemic[which(Cholera_endemic$geo_loc_name_country %in% c("Pakistan", "Nigeria")),"SalmonellaPhages"] > 0))
+
+chisq.test(table(Cholera_endemic[,"geo_loc_name_country"] ,Cholera_endemic[,"SalmonellaPhages"] > 0))$p.value
+
+
+
+
+Cholera_endemic[which(Cholera_endemic$geo_loc_name_country),]
+
+Cholera_endemic = merge(Cholera_endemic, Salmonella[,c("Sample", "Reads", "Percent")], by.x = "Run", by.y = "Sample", all.x = T)
+
+Salmonella[,c("Sample", "Reads", "Percent")]
+
+ggplot(Cholera_endemic, aes(x = geo_loc_name_country, y = Percent, color = )) + geom_boxplot()
+
+length(unique(Cholera_endemic$Sample.Name))
+length(which(table(Salmonella[which(Salmonella$Percent > 0.01),"V6"]) > 13105*(0.1/100)))
+
+Shigella <- read.delim("~/Downloads/Shigella.txt", header=FALSE)
+Shigella$Sample = gsub("kraken/","", Shigella$V1) %>% gsub("_report.*", "", .)
+Shigella$Percent = as.numeric(gsub(".*_report:", "", Shigella$V1))
+Shigella$Reads = Shigella$V3
+Shigella = Shigella[which(Shigella$Percent >= 0.01),]
+length(which(table(Shigella$V6) > 13105*(0.1/100)))
+
+Vibrio <- read.delim("~/Downloads/Vibrio.txt", header=FALSE)
+Vibrio$Sample = gsub("kraken/","", Vibrio$V1) %>% gsub("_report.*", "", .)
+Vibrio$Percent = as.numeric(gsub(".*_report:", "", Vibrio$V1))
+Vibrio$Reads = Vibrio$V3
+Vibrio = Vibrio[which(Vibrio$Percent >= 0.01),]
+length(which(table(Vibrio$V6) > 13105*(0.1/100)))
+
+
+#Final countries
+country1 = unique(Massive_expansion_of_human_gut_bacteriophage_diversity$country[1:28060])
+country2 = (unique((A_unified_catalog_of_204_938_reference_genomes_from_the_human_gut_microbiome[which(A_unified_catalog_of_204_938_reference_genomes_from_the_human_gut_microbiome$`Genome type` == "MAG"),"Country"])))
+country3 = unique(Ecological_dynamics_of_Enterobacteriaceae_in_the_human_gut_microbiome_across_global_populations$Country)
+unique(c(country1, country2, Cholera_endemic$geo_loc_name_country, country3))
+
+install.packages("pwr")
+library(pwr)
+
+
+#Systematic
+library(ape)
+library(ggtree)
+
+#ICP1 tree
+icp1_tree = read.tree("snps.aln.treefile")
+icp1_tree$tip.label = sub("^([^_]*)_([^_]*)_", "\\1_\\2#",icp1_tree$tip.label)
+ggtree(icp1_tree)
+
+
+#Get together metadata
+mags = Cholera_endemic[which(Cholera_endemic$Reads >= 1000),c("Run", "geo_loc_name_country", "Collection_Date")]
+colnames(mags) = c("ID", "Country", "Date")
+mags$Year = as.numeric(gsub("-.*","",mags$Date))
+mags[grep("-", mags$Date, invert = T),"Date"] = paste0(mags[grep("-", mags$Date, invert = T),"Year"], "-XX-XX")
+mags[grep("^[^-]*-[^-]*$", mags$Date),"Date"] = paste0(mags[grep("^[^-]*-[^-]*$", mags$Date),"Date"], "-XX")
+mags$Source = "MAG"
+
+load(file = "~/Documents/Data Analysis/Vibrio2023/Cholera.Rdata")
+wgs = global[,c("ID", "Country", "Date", "Year")]
+wgs$Source = "V. cholerae WGS"
+exclude$Date = paste(exclude$Year, stringr::str_pad(exclude$Month, 2, pad = "0"),  stringr::str_pad(exclude$Day, 2, pad = "0"), sep = "-")
+exclude$Date = gsub("NA", "XX", exclude$Date)
+wgs2 = exclude[,c("ID", "Country.clean", "Date", "Year")]
+colnames(wgs2)[2] = "Country"
+wgs2$Source =  "V. cholerae WGS"
+
+NCBI_ICP1 <- read_excel("~/Documents/Metagenomes/NCBI_ICP1.xlsx")
+NCBI_ICP1 = as.data.frame(NCBI_ICP1[,c("Assembly Accession", "Year", "Date", "Country")])
+colnames(NCBI_ICP1)[1] = "ID"
+NCBI_ICP1$Source = "NCBI Assembly"
+
+icp1_metadata = rbind.fill(mags, wgs, NCBI_ICP1, wgs2)
+icp1_metadata$ID[grep("^GC", icp1_metadata$ID)] = gsub("[.]1", "", icp1_metadata$ID[grep("^GC", icp1_metadata$ID)] )
+icp1_tree$tip.label[which(!icp1_tree$tip.label %in% icp1_metadata$ID)]
+
+odn_crispr <- read.delim("~/Documents/Metagenomes/odn_crispr.tab")
+odn_crispr[grep("cas|csy", odn_crispr$Genes),"Genes"] = "CRISPR"
+odn_crispr[grep("odn", odn_crispr$Genes),"Genes"] = "odn"
+
+icp1_metadata = merge(icp1_metadata, odn_crispr, by.x = "ID", by.y = "V1", all.x = T)
+
+heatmap = icp1_metadata[which(icp1_metadata$ID %in% icp1_tree$tip.label),]
+
+rownames(heatmap) = heatmap$ID
+heatmap = heatmap[,-c(1,3)]
+#for(i in 1:ncol(heatmap)){heatmap[which(!is.na(heatmap[,i])),i] = paste0(colnames(heatmap)[i], ": ", heatmap[which(!is.na(heatmap[,i])),i])}
+
+
+
+#Rename tips to make clearer
+for(i in icp1_tree$tip.label){
+  icp1_tree$tip.label[which( icp1_tree$tip.label == i)] = paste(c(i, icp1_metadata[which(icp1_metadata$ID == i),c("Country", "Year")]), collapse = "_")
+  rownames(heatmap)[which(rownames(heatmap) ==i)] =  paste(c(i, icp1_metadata[which(icp1_metadata$ID == i),c("Country", "Year")]), collapse = "_")}
+
+#heatmap[which(as.numeric(heatmap$Year) > 2018),"Year"] = "After 2018"
+#heatmap[which(as.numeric(heatmap$Year) < 2018),"Year"] = "Before 2017"
+tree = ggtree(icp1_tree) + geom_tiplab()
+gheatmap(tree, heatmap) + scale_fill_manual(values = c(brewer.pal(4, "Spectral"), brewer.pal(2,"Purples")[1:2],   brewer.pal(3,"Greens"), brewer.pal(3, "Blues")[c(2,3,1)]))
+
+#Try bactdating for preliminary look
+library(BactDating)
+dates = as.numeric(heatmap$Year)
+dates
+res=bactdate(icp1_tree,dates)
+plot(res)
+res$tree
+t = ggtree(res$tree) + geom_tiplab()
+t
+gheatmap(t, heatmap[,-2]) + scale_fill_manual(values = c(colorRampPalette(brewer.pal(9,"Blues"))(14), brewer.pal(7, "Spectral"))) + theme(legend.position = "bottom")
+
+#### New Analysis ####
+v = read.table("summary.txt", fill = T)
+v2 = read.table("summary_nonendemic.txt", fill = T)
+v = rbind(v, v2)
+library(reshape2)
+v$DiPhage1 = v$SalmonellaPhage + v$ShigellaPhage + v$VibrioPhage
+v$DiPhage2 = v$SalmonellaPhage + v$ShigellaPhage + v$VibrioPhage + v$ColiPhage
+v$N_DiPhage1 = v$N_SalmonellaPhage + v$N_ShigellaPhage + v$N_Vibriophage
+v$N_DiPhage2 = v$N_SalmonellaPhage + v$N_ShigellaPhage + v$N_Vibriophage + v$N_Coliphage
+v$DiPhage2 = v$SalmonellaPhage + v$ShigellaPhage + v$VibrioPhage + v$ColiPhage
+v$Sample = gsub("_report", "", v$Sample)
+v = melt(v, id.vars = c("Total", "Sample"))
+colnames(all)[which(colnames(all) ==  "geo_loc_name_country")] = "Country"
+m = merge(v, all[,c("Run","Country", "Collection_Date", "BioProject")], by.y = "Run" ,by.x = "Sample")
+#World bank
+income <- read_excel("Development.xlsx", sheet = "World bank income")
+colnames(income)[2] = "WorldBank"
+m = merge(m, income, by="Country")
+#HDI
+hdi <- read_excel("Development.xlsx",  sheet = "HDI")
+unique(m$geo_loc_name_country)[which(!unique(m$geo_loc_name_country) %in% hdi$Country)]
+head(hdi)
+colnames(hdi)[10] = "HDI_category"
+colnames(hdi) = c("HDI_rank", "Country", "HDI", "LifeExpectancy", "ExpSchool", "MeanSchool", "GNI_per_capita", "GNI_per_capita_minus_HDI", "HDI_rank_2021", "HDI_Category")
+m = merge(m, hdi, by = "Country")
+#Sanitation
+san <- read_excel("Development.xlsx",  sheet = "Percent basic sanitation")
+unique(m$geo_loc_name_country)[which(!unique(m$geo_loc_name_country) %in% san$Country)]
+m = merge(m, san, by = "Country")
+m$WorldBank = factor(m$WorldBank, levels = c("High", "Upper middle", "Lower middle", "Low"))
+m$HDI_Category = factor(m$HDI_Category, levels = c("Very high","High", "Medium", "Low"))
+
+numbers = m[grep("N", m$variable),]
+numbers$Range = numbers$value
+#numbers$Range = 10*ceiling(numbers$Range/10)
+numbers[which(numbers$value > 5),"Range"] = "6-10"
+numbers[which(numbers$value > 10),"Range"] = ">10"
+numbers$Range = factor(numbers$Range, levels = c(0:5,"6-10", ">10"))
+ggplot(numbers, aes(x = WorldBank, fill = factor(Range))) + geom_bar(position = "fill", color = "black") + facet_wrap(~variable) + scale_fill_manual(values = colorRampPalette(brewer.pal(9, "Blues"))(12))
+
+#Does it look better if exclude people who are 0?
+numbers = as.data.frame(table(numbers[which(numbers$variable %in% c("N_Vibriophage", "N_SalmonellaPhage", "N_ShigellaPhage", "N_Coliphage")),c("variable", "WorldBank", "Range")]))
+numbers = numbers[which(numbers$Freq > 0),]
+for(i in unique(numbers$WorldBank)){
+  for(j in unique(numbers$variable)){
+    numbers[which(numbers$WorldBank == i & numbers$variable == j),"Percent"] = 100*numbers[which(numbers$WorldBank == i & numbers$variable == j),"Freq"]/sum(numbers[which(numbers$WorldBank == i & numbers$variable == j),"Freq"])
+  }
+}
+numbers = numbers[which(numbers$Range != 0),]
+#Black outline
+numbers$variable = gsub("N_", "", numbers$variable)
+numbers$variable = gsub("Coli", "Escherichia", numbers$variable)
+numbers$variable = gsub("phage", " phage", numbers$variable, ignore.case = T)
+numbers$WorldBank = gsub(" middle", "\nmiddle", as.character(numbers$WorldBank))
+numbers$WorldBank = factor(numbers$WorldBank, levels = c("High", "Upper\nmiddle", "Lower\nmiddle", "Low"))
+ggplot(numbers, aes(x = WorldBank, y= Percent, fill= Range)) + geom_bar(stat = "identity") + facet_wrap(~variable, ncol = 4) + scale_fill_manual(values = (brewer.pal(7, "GnBu"))) + geom_bar(data = aggregate(numbers$Percent, by = list(WorldBank = numbers$WorldBank, variable = numbers$variable), FUN = sum), aes(y = x), stat = "identity", fill = NA, color = "black") + labs(x = "World Bank Income Classification", y = "% samples with phage", fill = "No. phages") + theme_bw() + theme(panel.grid = element_blank())
+CochranArmitageTest(x, alternative = c("two.sided", "one.sided"))
+ggsave("Phagefreq.svg", width = 9, height =3)
+
+#Try similar but for phage load
+reads = m[-grep("N", m$variable),]
+reads$Percent = 100*reads$value/reads$Total
+reads = reads[order(reads$Percent),]
+
+
+reads[which(reads$Percent > 0),"Range"] = paste0(10^floor(log10(reads[which(reads$Percent > 0),"Percent"])), "-", 10^ceiling(log10(reads[which(reads$Percent > 0),"Percent"])))
+reads$Range = factor(reads$Range, levels = unique(reads$Range))
+reads[which(reads$Range %in% unique(reads$Range)[1:2]),"Range"] = 0
+
+ggplot(reads, aes(x = WorldBank, fill = Range)) + geom_bar(position = "fill", color = "black") + facet_wrap(~variable) + scale_fill_manual(values = colorRampPalette(brewer.pal(9, "Blues"))(12))
+
+
+
+#HDI
+
+#Clearer pattern
+m$HDI_Category = factor(m$HDI_Category, levels = c("Very high", "High", "Medium", "Low"))
+ggplot(m, aes(x = HDI_Category, y = value/Total)) + geom_boxplot(outlier.shape = NA) + scale_y_log10() + facet_wrap(~variable, scale = "free")
+ggplot(m, aes(x = HDI_Category, fill = value > 0)) + geom_bar(position = "fill") + facet_wrap(~variable) 
+#This is nice for Salmonella and DiPhage1
+ggplot(m, aes(x = HDI_Category, fill = 100*value/Total > 0.05)) + geom_bar(position = "fill") + facet_wrap(~variable) 
+ggplot(m, aes(x = HDI_Category, fill = 100*value/Total > 0.1)) + geom_bar(position = "fill") + facet_wrap(~variable) 
+
+ggplot(m, aes(x = HDI_rank, y = value+1)) + geom_point() + facet_wrap(~variable, scale = "free") + geom_smooth(method ="lm") + scale_y_log10()
+
+m$Percent = 100*m$value/m$Total
+m$LogPercent = log10(m$Percent + 1)
+
+model = lm(LogPercent~HDI_rank,m[which(m$variable == "Phage"),c("HDI_rank", "LogPercent")])
+newdata = data.frame(HDI_rank = 1:193, LogPercent = NA)
+newdata$LogPercent = predict(model, newdata)
+10^newdata$LogPercent - 1
+
+#0.6% if number 1, 0.9% if number 193
+quantile(m[which(m$variable == "Phage"),c("Percent")])
+
+range(m$HDI_rank)
+
+#Salmonella
+salmonellamodel = lm(LogPercent~HDI_rank,m[which(m$variable == "SalmonellaPhage"),c("HDI_rank", "LogPercent")])
+summary(salmonellamodel)
+quantile(m[which(m$variable == "DiPhage1"),c("Percent")])
+newdata = data.frame(HDI_rank = 1:193, LogPercent = NA)
+newdata$LogPercent = predict(model, newdata)
+percent = (10^newdata$LogPercent - 1)
+percent
+percent[2]/percent[1]
+
+
+#0.6% if number 1, 0.9% if number 193
+#Falling 26 rankings doubles Salmonella Phages
+#Fall 145 rankings to 1.5x Shigella
+
+library(countrycode)
+
+data.frame(Country = unique(m$Country))
+
+m$Continent = countrycode(sourcevar = m$Country,
+                            origin = "country.name",
+                            destination = "continent")
+#warning
+library(RColorBrewer)
+final = m[which(m$variable %in% c("Phage", "SalmonellaPhage")),]
+final$variable = gsub("Phage", "Phages", final$variable)
+final$variable = gsub("Salmonella", "Salmonella ", final$variable)
+
+ag = aggregate(final$Percent, by = list(variable = final$variable, Country = final$Country), FUN = mean)
+ag = merge(ag, unique(final[,c("Country", "HDI_rank")]), by = "Country")
+
+ggplot(final, aes(x = HDI_rank, y = Percent, color = Continent)) + geom_jitter(width = 1) + facet_wrap(~variable, scale = "free") + geom_smooth(method ="lm", color = "black") + scale_y_log10() + scale_color_manual(values = brewer.pal(9,"GnBu")[5:9]) + theme_bw() + labs(x = "Human Development Index Ranking (2022)", y = "% reads in microbiome (kraken v2.0.8)") # +
+  theme(axis.text = element_text(color = "white"), axis.title = element_text(color = "white"), strip.text = element_text(color = NA))
+ggsave("Development.png", width = 5, height = 4)
+
+ggplot(ag, aes(y = x, x = HDI_rank)) + geom_point() + scale_y_log10()  + geom_smooth(method = "lm")
+
+
+
+
+
+ggplot(final, aes(x = HDI_rank, y = 100*(value/Total), color = Continent)) + geom_jitter(width = 1) + facet_wrap(~variable, scale = "free") + geom_smooth(method ="lm", color = "black") + scale_y_log10() + scale_color_manual(values = brewer.pal(9,"GnBu")[5:9]) + theme_bw() + labs(x = "Human Development Index Ranking (2022)", y = "% reads in microbiome (kraken v2.0.8)") 
+
+
+
+
+ggsave("Development.png", width = 5, height = 4)
+ggplot(final, aes(x = Country, y = Percent, color = Continent)) + geom_boxplot(outlier.shape = NA) + facet_wrap(~variable, ncol = 4) + geom_smooth(method ="lm", color = "black") + scale_y_log10() + scale_color_manual(values = brewer.pal(9,"GnBu")[5:9]) + theme_bw() + labs(x = "Human Development Index Ranking (2022)", y = "% reads in microbiome (kraken v2.0.8)") + coord_flip()
+
+
+#Could try summarising by country
+salmonella = m[which(m$variable  == "N_SalmonellaPhage"),]
+salmonella = salmonella[order(salmonella$HDI_rank),]
+salmonella$Country = factor(salmonella$Country, levels = unique(salmonella$Country))
+ggplot(salmonella, aes(x = Country, fill = value > 0)) + geom_bar(position = "fill")
+t = table(salmonella$Country, salmonella$value > 0)
+t = data.frame(SalmonellaPhages = 100*t[,2]/(t[,1]+t[,2]), Country = names( 100*t[,2]/(t[,1]+t[,2])))
+t = merge(t, hdi, by = "Country")
+ggplot(t, aes(x = HDI_rank, y = SalmonellaPhages)) + geom_point() + geom_smooth(method = "lm")
+
+m$Percent
+ggplot(merge(aggregate(m[which(m$variable == "SalmonellaPhage"),"Percent"], by = list(Country = m[which(m$variable == "SalmonellaPhage"),"Country"]), FUN = mean), unique(m[,c("Country", "HDI_rank")], by = "Country")), aes(x = HDI_rank, y = log(x+1))) + geom_point() + geom_smooth(method ="lm") + ylim(0,0.2) 
+
+
+#Sanitation
+
+ggplot(m, aes(x = Sanitation, y = value/Total + 1)) + geom_point() + scale_y_log10() + facet_wrap(~variable, scale = "free") + geom_smooth(method = "lm")
+
+ggplot(m, aes(x = Sanitation, fill = 100*value/Total > 0.05)) + geom_bar(position = "fill") + facet_wrap(~variable) 
+ggplot(m, aes(x = HDI_Category, fill = 100*value/Total > 0.1)) + geom_bar(position = "fill") + facet_wrap(~variable) 
+
+ggplot(m, aes(x =Sanitation, y = value+1)) + geom_point() + facet_wrap(~variable, scale = "free") + geom_smooth(method ="lm") + scale_y_log10()
+ggplot(m, aes(x = round(Sanitation/100, 1), fill = value > 0)) + geom_bar(position = "fill") + facet_wrap(~variable) 
+ggplot(m, aes(x = round(Sanitation/25, 0), fill = value/Total > 0.1)) + geom_bar(position = "fill") + facet_wrap(~variable) 
+
+
+
+ggplot(m, aes(x = Sanitation, y = Phage/Total)) + geom_point() + geom_smooth(method = "lm") + scale_y_log10()
+
+ggplot(m, aes(x = Sanitation, y = SalmonellaPhage/Total)) + geom_point() + geom_smooth(method = "lm") + scale_y_log10()
+
+
+ggplot(m, aes(x = geo_loc_name_country, y = SalmonellaPhage/Total)) + geom_point() + geom_smooth(method = "lm") + scale_y_log10()
+
+table(m$SalmonellaPhage > 0)
+
+cor.test(m$Sanitation, m$Phage/m$Total)
+cor.test(m$Sanitation, m$SalmonellaPhage/m$Total)
+
+
+DescTools::CochranArmitageTest(table(m[which(m$variable == "N_Coliphage"),"WorldBank"], m[which(m$variable == "N_Coliphage"),"value"] > 0), alternative = c("two.sided"))$p.value
+
+DescTools::CochranArmitageTest(table(m[which(m$variable == "N_SalmonellaPhage"),"WorldBank"], m[which(m$variable == "N_SalmonellaPhage"),"value"] > 0), alternative = c("two.sided"))$p.value
+
+DescTools::CochranArmitageTest(table(m[which(m$variable == "N_ShigellaPhage"),"WorldBank"], m[which(m$variable == "N_ShigellaPhage"),"value"] > 0), alternative = c("two.sided"))$p.value
+
+DescTools::CochranArmitageTest(table(m[which(m$variable == "N_Vibriophage"),"WorldBank"], m[which(m$variable == "N_Vibriophage"),"value"] > 0), alternative = c("two.sided"))$p.value
+
+ggplot(m[which(m$variable == "N_SalmonellaPhage"),], aes(x = BioProject, fill = value > 0)) + facet_wrap(~Country, scale = "free_x") + geom_bar(position = "fill")

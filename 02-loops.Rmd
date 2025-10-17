@@ -1,0 +1,87 @@
+# Running commands on many samples
+
+## For loops {#loops}
+
+When you are working with a large number of fastq files or assemblies, for and while loops are extremely useful. Below is an example of how you might use a for loop to work on paired fastq files. In this example we are simply concatenating the files, but you could adapt this for any command where you need to provide paired fastq files.
+
+```{bash, eval = FALSE}
+for i in *_1.fastq.gz
+do
+#Create an ID without "_1.fastq.gz" at the end
+id=$(basename $i | sed 's/_1.fastq.gz//g')
+#Check both files are present
+ls ${id}_1.fastq.gz
+ls ${id}_2.fastq.gz
+#Concatenate
+cat ${id}_1.fastq.gz ${id}_2.fastq.gz > ${id}.fastq.gz
+done
+```
+
+## While loops
+
+Alternatively, you might have a tab-delimited file which contains the ID, the path to fastq file 1, and the path to fastq file 2. A file in this format is needed to run [snippy-multi](https://github.com/tseemann/snippy) for a reference based alignment.
+
+```{r, echo = F}
+library(knitr)
+fastq =  c("ERR976479", "ERR351174", "ERR576974", "ERR11850183")
+df = data.frame(ID =fastq, fastq1 = paste0(fastq, "_1.fastq.gz"), fastq2 = paste0(fastq, "_2.fastq.gz"))
+kable(df, col.names = NULL)
+
+```
+
+A while loop can be used to achieve something similar to above:
+
+```{bash, eval = FALSE}
+cat filelocations.txt | while read line
+do
+echo $line
+id=$(echo "$line" | awk '{print $1}')
+fastq1=$(echo "$line" | awk '{print $2}')
+fastq2=$(echo "$line" | awk '{print $3}')
+#Check both files are present
+ls $fastq1
+ls $fastq2
+#Concatenate
+cat $fastq1 $fastq1 > ${id}.fastq.gz
+done
+```
+
+For simplicity, in the rest of the book I have not included loops, even though for many of these commands you would most likely be using them.
+
+## Write a script
+
+If you really want to avoid using loops, another way is to use excel or R to write a script. Say, as above, you have a tab delimited file with your IDs and paths to your fastq files.
+
+```{r, echo = F}
+library(knitr)
+fastq =  c("ERR976479", "ERR351174", "ERR576974", "ERR11850183")
+df = data.frame(ID =fastq, fastq1 = paste0(fastq, "_1.fastq.gz"), fastq2 = paste0(fastq, "_2.fastq.gz"))
+kable(df, col.names = NULL)
+
+```
+
+Using excel, you could create a file that looks like this:
+
+```{r, echo = F}
+library(knitr)
+fastq =  c("ERR976479", "ERR351174", "ERR576974", "ERR11850183")
+df = data.frame(command = "cat ", fastq1 = paste0(fastq, "_1.fastq.gz"), fastq2 = paste0(fastq, "_2.fastq.gz"), command2 = " > ", id = paste0(fastq, ".fastq.gz"))
+kable(df, col.names = NULL)
+
+```
+
+Save this as a csv, then open it using Notepad or Textedit. Find and replace all commas with a space.
+
+```{bash, eval = FALSE}
+cat ERR976479_1.fastq.gz ERR976479_2.fastq.gz > ERR976479.fastq.gz
+cat ERR351174_1.fastq.gz ERR351174_2.fastq.gz > ERR351174.fastq.gz
+cat ERR576974_1.fastq.gz ERR576974_2.fastq.gz > ERR576974.fastq.gz
+cat ERR11850183_1.fastq.gz ERR11850183_2.fastq.gz > ERR11850183.fastq.gz
+```
+
+Now save this as a file with the extension ".sh". Use the chmod command to make the file executable, then run it is a bash script.
+
+```{bash, eval = FALSE}
+chmod 777 *sh
+./my_new_script.sh
+```

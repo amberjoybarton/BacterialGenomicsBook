@@ -1,0 +1,54 @@
+--- 
+title: "The Bacterial Genomics Book"
+author: "Amber Baton"
+date: "`r Sys.Date()`"
+site: bookdown::bookdown_site
+documentclass: book
+bibliography: [book.bib, packages.bib]
+# url: your book url like https://bookdown.org/yihui/bookdown
+# cover-image: path to the social sharing image like images/cover.jpg
+description: |
+  This is a minimal example of using the bookdown package to write a book.
+  The HTML output format for this example is bookdown::gitbook,
+  set in the _output.yml file.
+link-citations: yes
+github-repo: rstudio/bookdown-demo
+---
+
+# Learning the basics
+
+## The Command Line
+
+Many bacterial genomics tools, particularly those working directly with fastq files, have no graphical interfaces and therefore require you to use the command line. Many universities and research institutes will have a high performance compute (HPC) facility, and their own guidelines on how to access and use it. 
+
+Alternatively, it is possible to run many of these tools on a Mac by opening the Terminal app. If you have a windows computer and no access to a HPC, you will need to install linux, e.g. using WSL.
+
+If you are unfamiliar with the command line it will take some time to get used to- particularly navigating and moving files, and running loops. I used the following courses to get started:
+
+[Codecademy Learn the command line](https://www.codecademy.com/learn/learn-the-command-line)
+
+[Coursera Command Line Tools for Genomic Data Science](https://www.coursera.org/learn/genomic-tools?utm_medium=sem&utm_source=gg&utm_campaign=b2c_emea_x_multi_ftcof_career-academy_cx_dr_bau_gg_pmax_gc_gb_en_m_hyb_25-04_x&campaignid=22490486852&adgroupid=&device=c&keyword=&matchtype=&network=x&devicemodel=&creativeid=&assetgroupid=6571531540&targetid=&extensionid=&placement=&gad_source=1&gad_campaignid=22483915359&gbraid=0AAAAADdKX6awVKw3Z6AoZsOaUPS5frj4C&gclid=Cj0KCQjw0NPGBhCDARIsAGAzpp0nJJJR68Th-HYiy5Z5nzzBXpiJEQYOK96Vca5R5X-sX2qkXXgOPmEaAudJEALw_wcB)
+
+## R
+
+Downstream genomics analysis and data visualisation is often carried out using R. Unlike the command line, R can be easily run on either a Mac or a Windows computer.
+
+[Download R](https://www.r-project.org/)
+
+I would also strongly recommend downloading R studio, which makes it easy to write reproducible scripts (File > New File > R Script), view the files in your environment and plot graphs.
+
+[Download RStudio](https://posit.co/download/rstudio-desktop/)
+
+To learn R, I would recommend you start with the interactive R Programming course provided as part of the [Swirl](https://swirlstats.com/students.html) package.
+
+For data visualisation, the [ggplot2 cheat sheet](https://posit.co/wp-content/uploads/2022/10/data-visualization-1.pdf) and [R graph gallery](https://r-graph-gallery.com/) are both brilliant resources.
+
+## Python
+
+While this book with primarily focus on R, some prefer Python for data analysis, as it is more versatile, and relevant for those looking to pursue careers in industry or data science. Resources for learning Python include [ROSALIND](https://rosalind.info/problems/locations/), [Codecademy](https://www.codecademy.com/) and [Coursera](https://www.coursera.org/learn/python-genomics?utm_medium=sem&utm_source=gg&utm_campaign=b2c_emea_x_multi_ftcof_career-academy_cx_dr_bau_gg_pmax_gc_gb_en_m_hyb_25-04_x&campaignid=22490486852&adgroupid=&device=c&keyword=&matchtype=&network=x&devicemodel=&creativeid=&assetgroupid=6577627676&targetid=&extensionid=&placement=&gad_source=1&gad_campaignid=22483915359&gbraid=0AAAAADdKX6awVKw3Z6AoZsOaUPS5frj4C&gclid=Cj0KCQjw0NPGBhCDARIsAGAzpp1m1lLnrfyAOXzX6ulSLOH0TXafUsZGCA_vXX1UODG5kxNCP9o5yakaAviEEALw_wcB). 
+
+## Interactive tools
+
+It is possible to carry out small-scale analyses using interactive websites and tools. Many tools that would usually be run on the command line can be carried out using [Galaxy](https://galaxy-main.usegalaxy.org/), and genome assembly, lineage assignment and antimicrobial resistance prediction can be carried out using [PathogenWatch](https://pathogen.watch/). [BLAST](https://blast.ncbi.nlm.nih.gov/Blast.cgi) is extremely useful for checking whether your query sequence matches anything in NCBI's databases, or whether two sequences have local similarity.  
+
+

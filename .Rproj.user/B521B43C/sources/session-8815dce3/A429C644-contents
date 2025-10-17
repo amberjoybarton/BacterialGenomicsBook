@@ -1,0 +1,599 @@
+rm(list=ls())
+library(readxl)
+setwd("/Users/ab61/Documents/Data Analysis/Enterobacteria")
+microbiome = read.delim("microbiome/ENA_ids.txt")
+
+#### Compile metadata ####
+
+#Monaghan metadata
+mon = read_xlsx("microbiome/Monaghan.xlsx")
+mon_sra = read.csv("microbiome/Monaghan_SRA.csv")
+mon = merge(mon_sra[,c("Sample.Name", "Run", "Collection_Date")], mon, by.x = "Sample.Name", by.y = "ID")
+rm(mon_sra)
+
+#Ashton metadata
+ashton = read_xlsx("microbiome/Ashton.xlsx", sheet = 27, skip = 2)
+ashton2 = read_xlsx("microbiome/Ashton.xlsx", sheet = 28, skip = 2)
+cat(ashton2$isolate_ID)
+cat(ashton$Lane, sep = "\n")
+
+#Levade
+levade = read_xlsx("microbiome/Levade.xlsx", skip = 2)
+levade_sra = read.csv("microbiome/Levade_SRA.csv")
+levade_sra$Sample = gsub("d[0-9]", "", levade_sra$Sample)
+levade_kraken = read.delim("/Users/ab61/Documents/Data Analysis/Vibrio2023/krakensummary.txt", sep = " ")
+levade_sra$kraken = levade_sra$Run %in% unique(levade_kraken$Sample)
+unique(levade_kraken$Sample) %in% levade_sra$Run
+
+#Merge
+unique(microbiome$Study)
+microbiome = microbiome[,-c(2:10, 13)]
+
+#Ashton
+microbiome = merge(microbiome, ashton, by.x = "run_accession", by.y = "ENA accession", all.x = T)
+microbiome[which(microbiome$Country.x == ""),"Country.x"] = microbiome[which(microbiome$Country.x == ""),"Country.y"]
+microbiome = microbiome[,-which(colnames(microbiome) == "Country.y")]
+colnames(microbiome)[which(colnames(microbiome) == "Country.x")] = "Country"
+colnames(microbiome)[1] = "Run"
+
+#Levade
+head(microbiome)
+head(as.data.frame(levade))
+levade_sra = levade_sra[,c("Run", "Id", "Collection_Date")]
+levade_sra$`Subject ID` = gsub("d.*", "", levade_sra$Id)
+levade_sra$Day = gsub(".*d", "", levade_sra$Id)
+levade = levade[,-c(2:4)]
+levade = merge(levade_sra, levade, by = "Subject ID")
+library(ggplot2)
+#ggplot(levade, aes(x = `Symptom outcome`, y = log(`Baseline vibriocidal titer on day 2 Inaba`))) + geom_boxplot()
+#table(levade$`Symptom outcome`, levade$`Blood group`)
+#ggplot(levade, aes(x = `Symptom outcome`, fill = `Blood group O`)) + geom_bar(position = "fill")
+colnames(levade)[1:6] = c("StudyID", "Run", "Collection_Date","Sample", "Day", "Group")
+levade$Country = "Bangladesh"
+levade$Study = "Levade et al. 2021"
+microbiome = plyr::rbind.fill(microbiome, levade)
+
+#mon
+head(mon)
+mon$Country = "India"
+mon$BMI = as.numeric(mon$BMI)
+colnames(microbiome)
+mon = mon[,-c(4,5,9)]
+colnames(mon) = c("Sample", "Run", "Collection_Date","Group", "CDT_status", "geography", "Age", "Sex", "BMI", "Antibiotics", "Housing", "Animals", "Country")
+mon$Study = "Monaghan 2019"
+microbiome = microbiome[-which(microbiome$Study == "Monaghan 2019"),]
+microbiome = plyr::rbind.fill(microbiome, mon)
+
+#Patch
+colnames(ashton2) = c("Lane","Sex", "Age", "Challenge", "Group", "Run")
+ashton2$Country = "UK"
+ashton2$Study = "Ashton (PATCH)"
+microbiome = plyr::rbind.fill(microbiome, ashton2)
+
+#Liu
+liu = read.csv("Microbiome/Liu 2018.csv")
+microbiome = plyr::rbind.fill(microbiome, liu)
+
+#### Compile kraken output ####
+microbiome$KrakenID = microbiome$Run
+microbiome[which(microbiome$Study %in% c("Ashton (PATCH)", "Ashton 2024")),"KrakenID"] = microbiome[which(microbiome$Study %in% c("Ashton (PATCH)", "Ashton 2024")),"Lane"]
+
+kraken = read.delim("Microbiome/Kraken/microbiome_kraken_summary.txt")
+table(kraken$Sample %in% microbiome[which(microbiome$Study == "Liu 2019"), "KrakenID"])
+microbiome[which(microbiome$Study == "Liu 2019"), "KrakenID"] %in% microbiome$KrakenID
+
+kraken_patch = read.delim("Microbiome/Kraken/Patch_kraken_summary.txt")
+kraken_strataa = read.delim("Microbiome/Kraken/strataa_kraken_summary.txt")
+kraken = rbind(kraken, kraken_patch, kraken_strataa)
+rm(kraken_patch, kraken_strataa)
+unique(kraken$Sample)
+
+#Total reads
+total = kraken[which(kraken$Name %in% c("unclassified", "root")), ]
+total = aggregate(total$Number_rooted, by = list(KrakenID = total$Sample), FUN = sum)
+colnames(total)[2] = "Total"
+microbiome = merge(microbiome, total, by = "KrakenID")
+
+#Salmonella reads
+salmonella = kraken[which(kraken$Name == "Salmonella enterica"),c("Sample", "Number_rooted")]
+colnames(salmonella) = c("KrakenID", "Salmonella")
+microbiome = merge(microbiome, salmonella, by = "KrakenID", all.x = T, all.y = F)
+
+#Shigella reads
+shigella = kraken[which(kraken$Name == "Shigella"),c("Sample", "Number_rooted")]
+colnames(shigella) = c("KrakenID", "Shigella")
+microbiome = merge(microbiome, shigella, by = "KrakenID", all.x = T, all.y = F)
+
+#Cholera reads
+cholera = kraken[which(kraken$Name == "Vibrio cholerae"),c("Sample", "Number_rooted")]
+colnames(cholera) = c("KrakenID", "Cholera")
+microbiome = merge(microbiome, cholera, by = "KrakenID", all.x = T, all.y = F)
+
+#E coli reads
+ecoli = kraken[which(kraken$Name == "Escherichia coli"),c("Sample", "Number_rooted")]
+colnames(ecoli) = c("KrakenID", "Ecoli")
+microbiome = merge(microbiome,ecoli, by = "KrakenID", all.x = T, all.y = F)
+
+#ICP1
+icp1 = kraken[which(kraken$Name == "Vibrio phage ICP1"),c("Sample", "Number_rooted")]
+colnames(icp1) = c("KrakenID", "ICP1")
+microbiome = merge(microbiome,icp1, by = "KrakenID", all.x = T, all.y = F)
+
+#ICP2
+icp2 = kraken[which(kraken$Name == "Vibrio phage ICP2"),c("Sample", "Number_rooted")]
+colnames(icp2) = c("KrakenID", "ICP2")
+microbiome = merge(microbiome,icp2, by = "KrakenID", all.x = T, all.y = F)
+
+#ICP3
+icp3 = kraken[which(kraken$Name == "Vibrio phage ICP3"),c("Sample", "Number_rooted")]
+colnames(icp3) = c("KrakenID", "ICP3")
+microbiome = merge(microbiome,icp3, by = "KrakenID", all.x = T, all.y = F)
+
+#Vibriophage
+vibriophage = kraken[intersect(grep("Vibrio|vibrio", kraken$Name), which(kraken$Domain == "Viruses" & kraken$Tax_code == "S")), ]
+vibriophage = aggregate(vibriophage$Number_rooted, by = list(KrakenID = vibriophage$Sample), FUN = sum)
+colnames(vibriophage)[2] = "Vibriophage"
+microbiome = merge(microbiome, vibriophage, by = "KrakenID", all.x = T, all.y = F)
+
+#Salmonella phage
+salmonellaphage = kraken[intersect(grep("Salmonella|salmonella", kraken$Name), which(kraken$Domain == "Viruses" & kraken$Tax_code == "S")), ]
+salmonellaphage = aggregate(salmonellaphage$Number_rooted, by = list(KrakenID = salmonellaphage$Sample), FUN = sum)
+colnames(salmonellaphage)[2] = "salmonellaphage"
+microbiome = merge(microbiome, salmonellaphage, by = "KrakenID", all.x = T, all.y = F)
+
+#shigella phage
+shigellaphage = kraken[intersect(grep("Shigella|shigella", kraken$Name), which(kraken$Domain == "Viruses" & kraken$Tax_code == "S")), ]
+shigellaphage = aggregate(shigellaphage$Number_rooted, by = list(KrakenID = shigellaphage$Sample), FUN = sum)
+colnames(shigellaphage)[2] = "shigellaphage"
+microbiome = merge(microbiome, shigellaphage, by = "KrakenID", all.x = T, all.y = F)
+
+#Enterobacterial phage
+enterophage = kraken[intersect(grep("Entero|entero", kraken$Name), which(kraken$Domain == "Viruses" & kraken$Tax_code == "S")), ]
+enterophage = aggregate(enterophage$Number_rooted, by = list(KrakenID = enterophage$Sample), FUN = sum)
+colnames(enterophage)[2] = "enterophage"
+microbiome = merge(microbiome, enterophage, by = "KrakenID", all.x = T, all.y = F)
+
+#Total virus
+viral = kraken[which(kraken$Domain == "Viruses" & kraken$Tax_code == "D"), ]
+viral = aggregate(viral$Number_rooted, by = list(KrakenID = viral$Sample), FUN = sum)
+colnames(viral)[2] = "Virus"
+microbiome = merge(microbiome, viral, by = "KrakenID", all.x = T, all.y = F)
+
+for(i in 27:37){microbiome[which(is.na(microbiome[,i])),i] = 0  }
+
+save(kraken, file = "kraken.Rdata")
+
+#### Analysis ####
+
+#Thresholds
+library(pROC)
+
+#Cholera
+s = microbiome[which(microbiome$Study == "Levade et al. 2021"),]
+table((s$Group))
+s$Acute = as.numeric(s$Group !="UnInfected")
+s$Percent = 100*s$Cholera/s$Total
+roc <- roc(s$Acute, s$Percent)
+plot(roc)
+coords(roc, x = "best")
+cholera_threshold = as.numeric(coords(roc, x = "best")[1])
+coord = coords(roc)
+cholera_threshold  = min(coord[which(abs(coord$specificity - 0.9) == min(abs(coord$specificity - 0.9))),"threshold"])
+
+#Salmonella
+s = microbiome[which(microbiome$Study == "Ashton 2024" & microbiome$Group %in% c("Control_HealthySerosurvey", "Acute_Typhi" )),]
+s$Percent = 100*s$Salmonella/s$Total
+s$Acute = as.numeric(s$Group == "Acute_Typhi")
+s$Acute = factor(s$Acute)
+roc <- roc(s$Acute, s$Percent)
+plot(roc)
+coord = coords(roc)
+salmonella_threshold  = min(coord[which(abs(coord$specificity - 0.9) == min(abs(coord$specificity - 0.9))),"threshold"])
+
+#Shigella
+s = microbiome[which(microbiome$Study == "Liu 2019"),]
+s$Group = as.numeric(s$Group != "Negative")
+s$Percent = 100*s$Shigella/s$Total
+roc <- roc(s$Group, s$Percent)
+plot(roc)
+coords(roc, x = "best")
+shigella_threshold = as.numeric(coords(roc, x = "best")[1,1])
+coord = coords(roc)
+shigella_threshold  = min(coord[which(abs(coord$specificity - 0.9) == min(abs(coord$specificity - 0.9))),"threshold"])
+
+#Cholera positive
+microbiome$CholeraPositive = "No"
+microbiome[which(100*(microbiome$Cholera/microbiome$Total) > cholera_threshold),"CholeraPositive"] = "Vibrio cholerae"
+
+#Salmonella positive
+microbiome$SalmonellaPositive = "No"
+microbiome[which(100*(microbiome$Salmonella/microbiome$Total) > salmonella_threshold),"SalmonellaPositive"] = "Salmonella"
+
+#Shigella positive
+microbiome$ShigellaPositive = "No"
+microbiome[which(100*(microbiome$Salmonella/microbiome$Total) > shigella_threshold),"ShigellaPositive"] = "Shigella"
+
+ggplot(microbiome, aes(x = Group, fill = CholeraPositive)) + geom_bar(position = "fill") + facet_wrap(~Study, scale = "free")
+ggplot(microbiome, aes(x = Group, fill = SalmonellaPositive)) + geom_bar(position = "fill") + facet_wrap(~Study, scale = "free")
+ggplot(microbiome, aes(x = Group, fill = ShigellaPositive)) + geom_bar(position = "fill") + facet_wrap(~Study, scale = "free")
+
+
+table(microbiome$Group)
+microbiome$Symptoms = "Asymptomatic"
+microbiome[which(microbiome$Group %in% c("Acute_Typhi", "Culture and PCR positive", "diarrhoea", "Negative", "Paratyphoid fever", "PCR positive", "Symptomatic infected", "Typhoid fever")), "Symptoms"] = "Symptomatic"
+microbiome = microbiome[-which(microbiome$Group == "water ctrl"),]
+
+
+#Phages
+table(microbiome$Category)
+library(plyr)
+library(scales)
+
+microbiome$Category = paste(microbiome$Symptoms, microbiome$ShigellaPositive)
+microbiome$Category = gsub("Asymptomatic No", "No infection", microbiome$Category)
+microbiome$Category = gsub(" Shigella", "\nShigella", microbiome$Category)
+microbiome$Category = factor(microbiome$Category, levels = c("No infection", "Asymptomatic\nShigella", "Symptomatic\nShigella"))
+
+a = ggplot(microbiome[which(microbiome$Category != "Symptomatic No"),], aes(color = Category, fill = Category, x = Category, y = 100*shigellaphage/Total + 0.00001)) + geom_boxplot(outlier.shape = NA, linewidth = 2) + scale_y_continuous(trans='log10', labels = scales::comma) + labs(y = "% reads", x = "") + theme_minimal() + guides(fill = "none", color = "none")  + scale_fill_manual(values = (c("#C1D8C3","#6A9C89", "#FFA725"))) + scale_color_manual(values = (c("#C1D8C3","#6A9C89", "#FFA725"))) + theme(axis.text.x=element_text(size=12), axis.title.y=element_text(size=12)) 
+
+a
+
+microbiome$Category = paste(microbiome$Symptoms, microbiome$SalmonellaPositive)
+microbiome$Category = gsub("Asymptomatic No", "No infection", microbiome$Category)
+microbiome$Category = gsub(" Salmonella", "\nSalmonella", microbiome$Category)
+microbiome$Category = factor(microbiome$Category, levels = c("No infection", "Asymptomatic\nSalmonella", "Symptomatic\nSalmonella"))
+
+b = ggplot(microbiome[which(microbiome$Category != "Symptomatic No"),], aes(color = Category, fill = Category, x = Category, y = 100*salmonellaphage/Total + 0.00001)) + geom_boxplot(outlier.shape = NA, linewidth = 2) + scale_y_continuous(trans='log10', labels = scales::comma) + labs(y = "% reads", x = "") + theme_minimal() + guides(fill = "none", color = "none")  + scale_fill_manual(values = (c("#C1D8C3","#6A9C89", "#FFA725"))) + scale_color_manual(values = (c("#C1D8C3","#6A9C89", "#FFA725"))) + theme(axis.text.x=element_text(size=12), axis.title.y=element_text(size=12)) 
+
+microbiome$Category = paste(microbiome$Symptoms)
+microbiome[which(microbiome$Category == "Symptomatic" & (microbiome$SalmonellaPositive == "Salmonella" | microbiome$ShigellaPositive == "Shigella")),"Category"]  = "Symptomatic\nshigella or\nsalmonella"
+microbiome[which(microbiome$Category == "Asymptomatic" & (microbiome$SalmonellaPositive == "Salmonella" | microbiome$ShigellaPositive == "Shigella")),"Category"]  = "Asymptomatic\nshigella or\nsalmonella"
+microbiome[which(microbiome$Category == "Asymptomatic" & (microbiome$SalmonellaPositive == "No" &  microbiome$ShigellaPositive == "No")),"Category"]  = "No infection"
+microbiome$Category = factor(microbiome$Category, levels = c("No infection", "Asymptomatic\nshigella or\nsalmonella", "Symptomatic\nshigella or\nsalmonella"))
+
+c = ggplot(microbiome[which(!is.na(microbiome$Category)),], aes(color = Category, fill = Category, x = Category, y = 100*enterophage/Total + 0.00001)) + geom_boxplot(outlier.shape = NA, linewidth = 2) + scale_y_continuous(trans='log10', labels = scales::comma) + labs(y = "% reads", x = "") + theme_minimal() + guides(fill = "none", color = "none")  + scale_fill_manual(values = (c("#C1D8C3","#6A9C89", "#FFA725"))) + scale_color_manual(values = (c("#C1D8C3","#6A9C89", "#FFA725"))) + theme(axis.text.x=element_text(size=12), axis.title.y=element_text(size=12)) 
+
+
+microbiome$Category = paste(microbiome$Symptoms, microbiome$CholeraPositive)
+microbiome$Category = gsub("Asymptomatic No", "No infection", microbiome$Category)
+microbiome$Category = gsub(" Vibrio cholerae", "\nVibrio cholerae", microbiome$Category)
+microbiome$Category = factor(microbiome$Category, levels = c("No infection", "Asymptomatic\nVibrio cholerae", "Symptomatic\nVibrio cholerae"))
+
+d = ggplot(microbiome[which(microbiome$Category != "Symptomatic No"),], aes(color = Category, fill = Category, x = Category, y = 100*Vibriophage/Total + 0.00001)) + geom_boxplot(outlier.shape = NA, linewidth = 2) + scale_y_continuous(trans='log10', labels = scales::comma) + labs(y = "% reads", x = "") + theme_minimal() + guides(fill = "none", color = "none")  + scale_fill_manual(values = (c("#C1D8C3","#6A9C89", "#FFA725"))) + scale_color_manual(values = (c("#C1D8C3","#6A9C89", "#FFA725"))) + theme(axis.text.x=element_text(size=12), axis.title.y=element_text(size=12)) 
+
+
+library(gridExtra)
+phage = arrangeGrob(a,b,c,d)
+ggsave(phage, file = "ShigellaPhage.png", height =6, width = 10)
+
+
+ggplot(microbiome, aes(x = Symptoms, y = log(shigellaphage/Shigella))) + geom_boxplot() 
+
+ggplot(microbiome, aes(x = Symptoms, y = log(salmonellaphage/Salmonella))) + geom_boxplot() 
+
+ggplot(microbiome, aes(x = ShigellaPositive, y = log(100*enterophage/Total))) + geom_boxplot()
+ggplot(microbiome, aes(x = ShigellaPositive, y = log(100*salmonellaphage/Total))) + geom_boxplot()
+ggplot(microbiome, aes(x = ShigellaPositive, y = log(100*Vibriophage/Total))) + geom_boxplot()
+
+ggplot(microbiome, aes(x = SalmonellaPositive, y = log(100*salmonellaphage/Total))) + geom_boxplot() + facet_wrap(~Symptoms)
+
+ggplot(microbiome, aes(x = SalmonellaPositive, y = log(100*enterophage/Total))) + geom_boxplot()
+ggplot(microbiome, aes(x = SalmonellaPositive, y = log(100*shigellaphage/Total))) + geom_boxplot()
+ggplot(microbiome, aes(x = SalmonellaPositive, y = log(100*Vibriophage/Total))) + geom_boxplot()
+
+ggplot(microbiome, aes(x = Symptoms, y = log(Vibriophage/Cholera))) + geom_boxplot()
+
+
+ggplot(microbiome, aes(x = CholeraPositive, y = log(100*Vibriophage/Total))) + geom_boxplot() + facet_wrap(~Symptoms)
+ggplot(microbiome, aes(x = CholeraPositive, y = log(100*shigellaphage/Total))) + geom_boxplot()
+ggplot(microbiome, aes(x = CholeraPositive, y = log(100*salmonellaphage/Total))) + geom_boxplot()
+
+ggplot(microbiome, aes(x = Country, fill = CholeraPositive)) + geom_bar(position = "fill")
+ggplot(microbiome, aes(x = Country, fill = SalmonellaPositive)) + geom_bar(position = "fill")
+ggplot(microbiome, aes(x = Country, fill = ShigellaPositive)) + geom_bar(position = "fill")
+
+ggplot(microbiome[which(microbiome$Symptoms == "Asymptomatic"),], aes(x = Country, y = log(100*Vibriophage/Total))) + geom_boxplot() 
+
+library(plotly)
+
+library(pheatmap)
+pheatmap(log(microbiome[,c(28:30,35:37)]+1))
+hmap = microbiome[,c(39:41,35:37)]
+for(i in 1:3){hmap[,i] = as.numeric(hmap[,i]!= "No")*14}
+for(i in 4:6){hmap[,i] = log(hmap[,i] + 1)}
+pheatmap(as.matrix(hmap))
+
+#T7
+microbiome$T7 = "None"
+microbiome[which(microbiome$KrakenID %in% kraken[grep("T7likevirus|T7-like", kraken$Name),"Sample"]),"T7"] = "T7-like"
+microbiome[which(microbiome$KrakenID %in% kraken[grep("Enterobacteria phage T7", kraken$Name),"Sample"]),"T7"] = "T7"
+ggplot(microbiome, aes(x = Country, fill = T7)) + geom_bar(position = "fill") 
+
+#Enterobacteria phage T7|
+
+#Toxin summary
+toxin = read.csv("Microbiome/Kraken/toxin_summary.csv")
+for(i in 3:35){
+  toxin[,i] = as.numeric(toxin[,i] == "yes")
+}
+#Already Salmonella positive
+typhi = toxin[which(rowSums(toxin[,grep("Typhoid|STY|tvi|vex", colnames(toxin))]) > 0),"name"]
+microbiome[which(microbiome$KrakenID %in% typhi),]
+#Shigella
+shigella = toxin[which(rowSums(toxin[,grep("Shigella", colnames(toxin))]) > 0),"name"]
+microbiome[which(microbiome$KrakenID %in% shigella),"ShigellaPositive"] = "Shigella"
+
+
+#Sunburst plot
+#Maybe just a table for each
+summary = data.frame(Pathogen = NA, Country = NA, Percent = NA)[,0]
+for(i in c("CholeraPositive", "SalmonellaPositive", "ShigellaPositive")){
+tbl = table(microbiome[which(microbiome$Symptoms == "Asymptomatic"),c("Country", i)]) 
+tbl = 100*tbl[,2]/rowSums(tbl)
+tbl = data.frame(Pathogen = i, Country = names(tbl), Percent = tbl)
+summary = rbind(tbl, summary)}
+
+ggplot(microbiome[which(microbiome$Study == "Ashton (PATCH)"),], aes(x = Group == "Not diagnosed", fill = salmonellaphage > 0)) + geom_bar(position = "fill")
+
+ggplot(microbiome[which(microbiome$Study == "Ashton (PATCH)"),], aes(fill = Group == "Not diagnosed", x = salmonellaphage > 0)) + geom_bar(position = "fill")
+
+ggplot(microbiome[which(microbiome$Study == "Ashton (PATCH)"),], aes(fill = Group == "Not diagnosed", x = salmonellaphage > 0 )) + geom_bar(position = "fill")
+
+ggplot(microbiome[which(microbiome$Study == "Ashton (PATCH)"),], aes(x = Group != "Not diagnosed", y = log(enterophage + salmonellaphage + 1))) + geom_boxplot()
+ggplot(microbiome[which(microbiome$Study == "Ashton (PATCH)"),], aes(x = Group != "Not diagnosed", y = log(enterophage + salmonellaphage  + 1))) + geom_boxplot()
+
+#Phages by country
+i = "Bangladesh"
+j = "Vibrio"
+phage_geo = data.frame(Phage = NA, Percent = NA, Country= NA, Type = NA)[,0]
+
+for(i in unique(microbiome$Country)){
+  for(j in c("Vibrio", "Salmonella", "Shigella")){
+ids = microbiome[which(microbiome$Country == i),"KrakenID"]
+x = kraken[intersect(which(kraken$Sample %in% ids & kraken$Domain == "Viruses" & kraken$Tax_code == "S"), grep(j,  kraken$Name)),]
+tbl = aggregate(x$Number_rooted, by = list(x$Name), FUN = sum)
+colnames(tbl) = c("Phage", "Percent")
+tbl$Percent = 100*tbl$Percent/sum(tbl$Percent)
+tbl$Country = i
+tbl$Type = j
+phage_geo = rbind(phage_geo, tbl)
+}}
+#Predictive power of microbiome and phages
+phage_geo$Label = phage_geo$Phage
+phage_geo$Label = gsub(".*phage ", "", phage_geo$Label)
+phage_geo[which(phage_geo$Percent < 10),"Label"] = NA
+table(unique(phage_geo[,c("Type", "Phage")])$Type)
+cols = c(colorRampPalette(brewer.pal(9, "RdPu")[1:8])(49),colorRampPalette(brewer.pal(9, "Oranges"))(10),colorRampPalette(brewer.pal(9, "GnBu"))(18))
+phage_geo$Country = factor(phage_geo$Country, levels = c("UK", "India", "Bangladesh" ,"Nepal", "Malawi", "Mozambique", "Mali"))
+ggplot(phage_geo, aes(x = Country, y = Percent, fill = Phage)) + facet_grid(Type~.) + geom_bar(stat = "identity", color = "black") + geom_text(aes(label = Label), position = position_stack(vjust = 0.5), size = 5) + guides(fill = F) + coord_flip() + scale_fill_manual(values = cols) + theme_minimal() + theme(strip.text.y = element_text(size = 20), axis.text.y = element_text(size = 14)) + labs(y = "Weighted %")
+
+
+
+ggplot(phage_geo[which(phage_geo$Type == "Salmonella"),], aes(x = Country, y = Percent, fill = Phage)) + facet_wrap(~Type) + geom_bar(stat = "identity") + geom_text(aes(label = Phage), position = position_stack(vjust = 0.5)) + guides(fill = F)
+
+ggplot(phage_geo[which(phage_geo$Type == "Shigella"),], aes(x = Country, y = Percent, fill = Phage)) + facet_wrap(~Type) + geom_bar(stat = "identity") + geom_text(aes(label = Phage), position = position_stack(vjust = 0.5)) + guides(fill = F)
+
+ggplot(phage_geo[which(phage_geo$Type == "Vibrio"),], aes(x = Country, y = Percent, fill = Phage)) + facet_wrap(~Type) + geom_bar(stat = "identity") + geom_text(aes(label = Phage), position = position_stack(vjust = 0.5)) + guides(fill = F)
+
+#Which Salmonella +ve people are likely to be typhi?
+microbiome$Typhi = microbiome$Salmonella
+for(i in microbiome[which(microbiome$SalmonellaPositive == "Salmonella"),"KrakenID"]){
+  microbiome[which(microbiome$KrakenID == i),"Typhi"] = kraken[intersect(which(kraken$Sample == i), grep("Salmonella enterica subsp. enterica serovar",kraken$Name)),"Name"][1]
+}
+
+
+#Diversity of the virome by country
+microbiome$ViromeDiversity = 0
+library(vegan)
+for(i in unique(microbiome$KrakenID)){
+  print(i)
+  print(i)
+  microbiome[which(microbiome$KrakenID == i),"ViralSpecies"] = nrow(kraken[which(kraken$Sample == i & kraken$Domain == "Viruses" & kraken$Tax_code == "S"),])
+  microbiome[which(microbiome$KrakenID == i),"PhageSpecies"] = nrow(kraken[intersect(which(kraken$Sample == i & kraken$Domain == "Viruses" & kraken$Tax_code == "S"), grep("phage", kraken$Name)),])
+  microbiome[which(microbiome$KrakenID == i),"SalmonellaPhageSpecies"] = nrow(kraken[intersect(which(kraken$Sample == i & kraken$Domain == "Viruses" & kraken$Tax_code == "S"), grep("Salmonella phage", kraken$Name)),])
+  microbiome[which(microbiome$KrakenID == i),"ViromeDiversity"] = diversity(kraken[which(kraken$Sample == i & kraken$Domain == "Viruses" & kraken$Tax_code == "S"),"Number_direct"])
+  }
+
+save(microbiome, file = "Microbiome.Rdata")
+
+#What if more stringent cutoff for species?
+p = kraken[intersect(which(kraken$Percent >= 0.01 & kraken$Domain == "Viruses" ), grep("Salmonella", kraken$Name)),]
+View(merge(microbiome[,c("Run", "Country")], p, by.x = "Run", by.y = "Sample"))
+
+
+microbiome$Total
+microbiome$Country = factor(microbiome$Country, levels = c("UK", "India", "Bangladesh" ,"Nepal", "Malawi", "Mozambique", "Mali"))
+microbiome$Study
+ggplot(microbiome[which(microbiome$SalmonellaPositive == "No"),], aes(x = Country, y = 100*(salmonellaphage/Total+ 0.000001), fill = Country)) + geom_boxplot(fill = "white", outlier.shape = NA) + geom_jitter(shape = 21) + theme_bw() + labs(x = "Country (ordered by human development index)", y = "% reads Salmonella Phages") + scale_fill_brewer() + guides(fill = F) + theme(text = element_text(size = 20)) + scale_y_log10()
+
+#In each person with a known Salmonella Phage, what is the most common phage?
+kraken = kraken[order(kraken$Number_direct, decreasing = T),]
+for(i in unique(microbiome$KrakenID)){
+  sub = kraken[intersect(which(kraken$Sample == i), grep("Salmonella phage", kraken$Name)),"Name"]
+if(length(sub) > 0){
+  microbiome[which(microbiome$KrakenID == i),"MostCommon"] = kraken[intersect(which(kraken$Sample == i), grep("Salmonella phage", kraken$Name)),"Name"][1]
+}}
+
+save(microbiome, file = "Microbiome.Rdata")
+
+
+ggplot(microbiome, aes(x = Country, fill = MostCommon)) + geom_bar(position = "fill", color = "black")
+
+load(file = "Microbiome.Rdata")
+subset = microbiome
+#subset = subset[which(!subset$Group %in% c("Acute_Typhi", "diarrhoea", "Symptomatic infected", "Asymptomatic infected", "PCR positive", "Culture and PCR positive" )),]
+subset$Infection = "No"
+subset[which((subset$Group %in% c("Acute_Typhi", "diarrhoea", "Symptomatic infected", "Asymptomatic infected", "PCR positive", "Culture and PCR positive" ))),"Infection"] = "Yes"
+subset = subset[which(subset$Infection == "No"),]
+subset$Study = gsub("Ashton [(]PATCH[)]", "Ashton 2024", subset$Study)
+
+ggplot(subset, aes(x = Country, y = SalmonellaPhageSpecies, color = Study)) + 
+  geom_boxplot(fill = "grey", color = "grey", outlier.shape = NA, staplewidth = 0.5, size = 1.5, aes(color = Infection)) + 
+  geom_jitter(width = 0.3, size = 2) + 
+  theme_bw() + 
+  labs(x = "Country", y = "Salmonella Phage Species per sample") + scale_fill_brewer() + 
+  theme(text = element_text(size = 20)) + theme(panel.grid = element_blank()) + scale_color_brewer(palette = "GnBu") + stat_summary(fun = "median", fun.min = "median", fun.max= "median", size= 0.3, geom = "crossbar", width = 0.8, color = "black") 
+ggsave("SalmonellaPhage.svg", height = 5, width = 10)
+
+ggplot(subset, aes(x = Country, y = 100*Virus/Total, color = Study)) + 
+  geom_boxplot(fill = "grey", color = "grey", outlier.shape = NA, staplewidth = 0.5, size = 1.5, aes(color = Infection)) + 
+  geom_jitter(width = 0.3, size = 2) + 
+  theme_bw() + 
+  labs(x = "Country", y = "% viral reads") + scale_fill_brewer() + 
+  theme(text = element_text(size = 20)) + theme(panel.grid = element_blank()) + scale_color_brewer(palette = "GnBu") + stat_summary(fun = "median", fun.min = "median", fun.max= "median", size= 0.3, geom = "crossbar", width = 0.8, color = "black") + scale_y_log10()
+ggsave("Viruses.svg", height = 5, width = 10)
+
+ggplot(subset, aes(x = Country, y = (100*salmonellaphage/Total+0.00001), color = Study)) + 
+  geom_boxplot(fill = "grey", color = "grey", outlier.shape = NA, staplewidth = 0.5, size = 1.5, aes(color = Infection)) + 
+  geom_jitter(width = 0.3, size = 2) + 
+  theme_bw() + 
+  labs(x = "Country", y = "% known Salmonella phage reads") + scale_fill_brewer() + 
+  theme(text = element_text(size = 20)) + theme(panel.grid = element_blank()) + scale_color_brewer(palette = "GnBu") + stat_summary(fun = "median", fun.min = "median", fun.max= "median", size= 0.3, geom = "crossbar", width = 0.8, color = "black") + scale_y_log10()
+ggsave("SalmonellaPhage2.svg", height = 5, width = 10)
+
+
+
+
+
+microbiome$Symptoms
+ggplot(microbiome[which(microbiome$Country == "UK"),], aes(x = Group, y = SalmonellaPhageSpecies, fill = Study)) + geom_boxplot(fill = "white", outlier.shape = NA) + geom_jitter(shape = 21) + theme_bw() + labs(x = "Country (ordered by human development index)", y = "Number of Phage Species per sample") + scale_fill_brewer() + guides(fill = F) + theme(text = element_text(size = 20))
+
+
+
+
+ggplot(microbiome, aes(x = Country, y = PhageSpecies, fill = Country)) + geom_boxplot(fill = "white", outlier.shape = NA)  + theme_bw() + labs(x = "Country (ordered by human development index)", y = "Number of Phage Species per sample") + scale_fill_brewer() + guides(fill = F) + theme(text = element_text(size = 20))
+
+
+ggplot(microbiome, aes(x = Country, y = SalmonellaPhageSpecies, fill = Country)) + geom_boxplot(fill = "white", outlier.shape = NA) + geom_jitter(shape = 21) + theme_bw() + labs(x = "Country (ordered by human development index)", y = "Number of Salmonella Phage Species per sample") + scale_fill_brewer() + guides(fill = F)  + theme(text = element_text(size = 20))
+
+
+
+
+
+#GDP per capita?
+median_na = function(x){median(x, na.rm = T)}
+gdp = aggregate(microbiome$PhageSpecies, by = list(Country = microbiome$Country),FUN = median_na)
+gdp$GDP = c(2464, 2487, 509, 833, 623, 1363, 49224)
+gdp$HDI = c(0.685, 0.685, 0.517, 0.419,0.493, 0.622,0.946) 
+gdp$HDI_ranking = c(130,130,172,188, 182, 145,13) 
+gdp$Malnutrition = c(11.9, 13.7, 19.9, 9.6, 24.8, 5.7, 2.5)
+
+ggplot(microbiome, aes(fill = Country, x = Country, y = 100*Virus/Total)) + geom_boxplot(outlier.shape = NA, fatten = NULL) + scale_y_continuous(trans='log10') + scale_fill_brewer(palette = "Spectral") + theme_minimal() + theme(text = element_text(size = 20)) + guides(fill = F) + labs(y = "Virome as % microbiome")
+
+
+ggplot(microbiome, aes(fill = Country, x = Country, y = PhageSpecies)) + geom_boxplot(outlier.shape = NA, fatten = NULL) + scale_fill_brewer(palette = "GnBu") + theme_minimal() + theme(text = element_text(size = 20), axis.text.x = element_text(size = 10)) + guides(fill = F) + labs(y = "Phage species")
+
+
+unique(microbiome[,c("Country", "HDI")])
+
+
+
+microbiome$Percent_virus = 100*microbiome$Virus/microbiome$Total
+ggplot(microbiome, aes(x = Country, y = log(ViromeDiversity/Total))) + geom_boxplot()
+
+wilcox.test(microbiome[which(microbiome$Country == "UK"),"Percent_virus"], microbiome[which(microbiome$Country != "UK"),"Percent_virus"])
+
+# #Create a matrix of bacterial species reads
+ microbiome$Typhi = gsub("Salmonella enterica subsp. enterica serovar ", "", microbiome$Typhi)
+# table(microbiome$Typhi)
+ table(microbiome[which(microbiome$Typhi == "Typhi"),"Symptoms"])
+
+ # 
+# salmonella= microbiome[which(microbiome$Typhi== "Typhi"),c("KrakenID", "Symptoms")]
+# bac = kraken[which(kraken$Domain == "Bacteria" & kraken$Tax_code == "S" & kraken$Sample %in% salmonella$KrakenID),]
+# head(bac)
+# bac = bac[which(bac$Percent >= 0.01),]
+# bac = bac[-which(bac$Name %in% c("Vibrio cholerae")),]
+# bac = bac[-grep("Salmonella", bac$Name),]
+# bac = bac[-grep("Shigella", bac$Name),]
+# head(bac)
+# bac = bac[,c("Sample","Name","Percent")]
+# bac$Name = make.names(bac$Name)
+# bac = reshape2::dcast( bac, Sample~Name)
+# 
+# for(i in 1:ncol(bac)){bac[,i][which(is.na(bac[,i]))] = 0}
+# remove = names(which(colSums(bac[,2:ncol(bac)]) < 10))
+# bac = bac[,-which(colnames(bac)%in% remove)]
+# 
+# rownames(bac) =bac[,1]
+# bac = bac[,-1]
+# salmonella = merge(salmonella, bac, by.x = "KrakenID", by.y = "row.names")
+# rownames(salmonella) = salmonella$KrakenID
+# salmonella = salmonella[,-1]
+# salmonella$Symptoms =factor(salmonella$Symptoms)
+# #inTraining <- createDataPartition(salmonella$Symptoms, p = .75, list = FALSE)
+# #training <- salmonella[ inTraining,]
+# #testing  <- salmonella[-inTraining,]
+# training = salmonella
+# 
+# fitControl <- trainControl(## 10-fold CV
+#   method = "repeatedcv",
+#   number = 10,
+#   ## repeated ten times
+#   repeats = 10, savePredictions = T, classProbs=T)
+# 
+# gbmFit1 <- train(Symptoms ~ ., data = training, 
+#                  method = "rf", 
+#                  trControl = fitControl)
+# varImp(gbmFit1)
+# 
+# library(MLeval)
+# res <- evalm(gbmFit1)
+# res$roc$data
+# typhi_microbiome_ML = gbmFit1
+# save(typhi_microbiome_ML, file = "typhi_microbiome_ML.Rdata")
+# #test = predict(gbmFit1, newdata = testing, type = "prob")[,"Symptomatic"]
+# #roc_test = roc(testing$Symptoms, test)
+# #plot(roc_test)
+# 
+# 
+
+#Now with virome
+salmonella= microbiome[which(microbiome$Typhi== "Typhi"),c("KrakenID", "Symptoms")]
+
+bac = kraken[which(kraken$Domain == "Viruses" & kraken$Tax_code == "S" & kraken$Sample %in% salmonella$KrakenID),]
+head(bac)
+#bac = bac[which(bac$Percent >= 0.01),]
+head(bac)
+bac = bac[,c("Sample","Name","Number_rooted")]
+bac$Name = make.names(bac$Name)
+bac = reshape2::dcast( bac, Sample~Name)
+
+for(i in 1:ncol(bac)){bac[,i][which(is.na(bac[,i]))] = 0}
+
+remove = names(which(colSums(bac[,2:ncol(bac)]) < 2))
+bac = bac[,-which(colnames(bac)%in% remove)]
+
+rownames(bac) =bac[,1]
+bac = bac[,-1]
+salmonella = merge(salmonella, bac, by.x = "KrakenID", by.y = "row.names")
+rownames(salmonella) = salmonella$KrakenID
+salmonella = salmonella[,-1]
+salmonella$Symptoms =factor(salmonella$Symptoms)
+#inTraining <- createDataPartition(salmonella$Symptoms, p = .75, list = FALSE)
+#training <- salmonella[ inTraining,]
+#testing  <- salmonella[-inTraining,]
+training = salmonella
+
+fitControl <- trainControl(## 10-fold CV
+  method = "repeatedcv",
+  number = 10,
+  ## repeated ten times
+  repeats = 10, savePredictions = T, classProbs=T)
+
+gbmFit1 <- train(Symptoms ~ ., data = training, 
+                 method = "rpart", 
+                 trControl = fitControl)
+varImp(gbmFit1)
+
+library(MLeval)
+res <- evalm(gbmFit1)
+res$roc$data
+#0.59
+typhi_virome_ML = gbmFit1
+save(typhi_virome_ML, file = "typhi_virome_ML.Rdata")
+
+varImp(typhi_virome_ML)
+evalm(typhi_virome_ML)
+
+#

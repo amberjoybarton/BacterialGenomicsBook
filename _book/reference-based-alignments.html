@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+<head>
+
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>Chapter 6 Reference-based alignments | The Bacterial Genomics Book</title>
+  <meta name="description" content="<p>This is a minimal example of using the bookdown package to write a book.
+The HTML output format for this example is bookdown::gitbook,
+set in the _output.yml file.</p>" />
+  <meta name="generator" content="bookdown 0.44 and GitBook 2.6.7" />
+
+  <meta property="og:title" content="Chapter 6 Reference-based alignments | The Bacterial Genomics Book" />
+  <meta property="og:type" content="book" />
+  
+  <meta property="og:description" content="<p>This is a minimal example of using the bookdown package to write a book.
+The HTML output format for this example is bookdown::gitbook,
+set in the _output.yml file.</p>" />
+  <meta name="github-repo" content="rstudio/bookdown-demo" />
+
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Chapter 6 Reference-based alignments | The Bacterial Genomics Book" />
+  
+  <meta name="twitter:description" content="<p>This is a minimal example of using the bookdown package to write a book.
+The HTML output format for this example is bookdown::gitbook,
+set in the _output.yml file.</p>" />
+  
+
+<meta name="author" content="Amber Baton" />
+
+
+<meta name="date" content="2025-09-26" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  
+  
+<link rel="prev" href="genome-assembly.html"/>
+<link rel="next" href="references.html"/>
+<script src="libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fuse.js@6.4.6/dist/fuse.min.js"></script>
+<link href="libs/gitbook-2.6.7/css/style.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-table.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-bookdown.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-highlight.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-search.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-fontsettings.css" rel="stylesheet" />
+<link href="libs/gitbook-2.6.7/css/plugin-clipboard.css" rel="stylesheet" />
+
+
+
+
+
+
+
+
+<link href="libs/anchor-sections-1.1.0/anchor-sections.css" rel="stylesheet" />
+<link href="libs/anchor-sections-1.1.0/anchor-sections-hash.css" rel="stylesheet" />
+<script src="libs/anchor-sections-1.1.0/anchor-sections.js"></script>
+
+
+<style type="text/css">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+<style type="text/css">
+  
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+</style>
+
+<link rel="stylesheet" href="style.css" type="text/css" />
+</head>
+
+<body>
+
+
+
+  <div class="book without-animation with-summary font-size-2 font-family-1" data-basepath=".">
+
+    <div class="book-summary">
+      <nav role="navigation">
+
+<ul class="summary">
+<li><a href="./">A Minimal Book Example</a></li>
+
+<li class="divider"></li>
+<li class="chapter" data-level="1" data-path="index.html"><a href="index.html"><i class="fa fa-check"></i><b>1</b> Learning the basics</a>
+<ul>
+<li class="chapter" data-level="1.1" data-path="index.html"><a href="index.html#the-command-line"><i class="fa fa-check"></i><b>1.1</b> The Command Line</a></li>
+<li class="chapter" data-level="1.2" data-path="index.html"><a href="index.html#r"><i class="fa fa-check"></i><b>1.2</b> R</a></li>
+<li class="chapter" data-level="1.3" data-path="index.html"><a href="index.html#python"><i class="fa fa-check"></i><b>1.3</b> Python</a></li>
+<li class="chapter" data-level="1.4" data-path="index.html"><a href="index.html#interactive-tools"><i class="fa fa-check"></i><b>1.4</b> Interactive tools</a></li>
+</ul></li>
+<li class="chapter" data-level="2" data-path="publicly-available-datasets.html"><a href="publicly-available-datasets.html"><i class="fa fa-check"></i><b>2</b> Publicly available datasets</a>
+<ul>
+<li class="chapter" data-level="2.1" data-path="publicly-available-datasets.html"><a href="publicly-available-datasets.html#downloading-fastq-files-from-a-published-study"><i class="fa fa-check"></i><b>2.1</b> Downloading fastq files from a published study</a></li>
+<li class="chapter" data-level="2.2" data-path="publicly-available-datasets.html"><a href="publicly-available-datasets.html#downloading-fastq-files-from-a-systematic-search-or-multi-study-collection"><i class="fa fa-check"></i><b>2.2</b> Downloading fastq files from a systematic search or multi-study collection</a></li>
+<li class="chapter" data-level="2.3" data-path="publicly-available-datasets.html"><a href="publicly-available-datasets.html#downloading-assemblies-from-online-databases"><i class="fa fa-check"></i><b>2.3</b> Downloading assemblies from online databases</a></li>
+</ul></li>
+<li class="chapter" data-level="3" data-path="running-commands-on-many-samples.html"><a href="running-commands-on-many-samples.html"><i class="fa fa-check"></i><b>3</b> Running commands on many samples</a>
+<ul>
+<li class="chapter" data-level="3.1" data-path="running-commands-on-many-samples.html"><a href="running-commands-on-many-samples.html#loops"><i class="fa fa-check"></i><b>3.1</b> For loops</a></li>
+<li class="chapter" data-level="3.2" data-path="running-commands-on-many-samples.html"><a href="running-commands-on-many-samples.html#while-loops"><i class="fa fa-check"></i><b>3.2</b> While loops</a></li>
+<li class="chapter" data-level="3.3" data-path="running-commands-on-many-samples.html"><a href="running-commands-on-many-samples.html#write-a-script"><i class="fa fa-check"></i><b>3.3</b> Write a script</a></li>
+</ul></li>
+<li class="chapter" data-level="4" data-path="fastq-quality-control.html"><a href="fastq-quality-control.html"><i class="fa fa-check"></i><b>4</b> Fastq quality control</a>
+<ul>
+<li class="chapter" data-level="4.1" data-path="fastq-quality-control.html"><a href="fastq-quality-control.html#fastqc-and-multiqc"><i class="fa fa-check"></i><b>4.1</b> FastQC and MultiQC</a></li>
+<li class="chapter" data-level="4.2" data-path="fastq-quality-control.html"><a href="fastq-quality-control.html#trimming-reads"><i class="fa fa-check"></i><b>4.2</b> Trimming reads</a></li>
+<li class="chapter" data-level="4.3" data-path="fastq-quality-control.html"><a href="fastq-quality-control.html#contamination"><i class="fa fa-check"></i><b>4.3</b> Contamination</a></li>
+</ul></li>
+<li class="chapter" data-level="5" data-path="genome-assembly.html"><a href="genome-assembly.html"><i class="fa fa-check"></i><b>5</b> Genome assembly</a>
+<ul>
+<li class="chapter" data-level="5.1" data-path="genome-assembly.html"><a href="genome-assembly.html#short-read"><i class="fa fa-check"></i><b>5.1</b> Short-read</a></li>
+<li class="chapter" data-level="5.2" data-path="genome-assembly.html"><a href="genome-assembly.html#hybrid-and-long-read"><i class="fa fa-check"></i><b>5.2</b> Hybrid and long-read</a></li>
+<li class="chapter" data-level="5.3" data-path="genome-assembly.html"><a href="genome-assembly.html#quality-control"><i class="fa fa-check"></i><b>5.3</b> Quality control</a></li>
+<li class="chapter" data-level="5.4" data-path="genome-assembly.html"><a href="genome-assembly.html#annotation"><i class="fa fa-check"></i><b>5.4</b> Annotation</a></li>
+</ul></li>
+<li class="chapter" data-level="6" data-path="reference-based-alignments.html"><a href="reference-based-alignments.html"><i class="fa fa-check"></i><b>6</b> Reference-based alignments</a>
+<ul>
+<li class="chapter" data-level="6.1" data-path="reference-based-alignments.html"><a href="reference-based-alignments.html#snippy"><i class="fa fa-check"></i><b>6.1</b> Snippy</a></li>
+<li class="chapter" data-level="6.2" data-path="reference-based-alignments.html"><a href="reference-based-alignments.html#coverage"><i class="fa fa-check"></i><b>6.2</b> Checking coverage</a></li>
+<li class="chapter" data-level="6.3" data-path="reference-based-alignments.html"><a href="reference-based-alignments.html#sub-setting-an-alignment"><i class="fa fa-check"></i><b>6.3</b> Sub-setting an alignment</a></li>
+<li class="chapter" data-level="6.4" data-path="reference-based-alignments.html"><a href="reference-based-alignments.html#detecting-recombination"><i class="fa fa-check"></i><b>6.4</b> Detecting recombination</a></li>
+<li class="chapter" data-level="6.5" data-path="reference-based-alignments.html"><a href="reference-based-alignments.html#masking-regions"><i class="fa fa-check"></i><b>6.5</b> Masking regions</a></li>
+<li class="chapter" data-level="6.6" data-path="reference-based-alignments.html"><a href="reference-based-alignments.html#core-gene-alignment"><i class="fa fa-check"></i><b>6.6</b> Core gene alignment</a></li>
+</ul></li>
+<li class="chapter" data-level="" data-path="references.html"><a href="references.html"><i class="fa fa-check"></i>References</a></li>
+<li class="divider"></li>
+<li><a href="https://github.com/rstudio/bookdown" target="blank">Published with bookdown</a></li>
+
+</ul>
+
+      </nav>
+    </div>
+
+    <div class="book-body">
+      <div class="body-inner">
+        <div class="book-header" role="navigation">
+          <h1>
+            <i class="fa fa-circle-o-notch fa-spin"></i><a href="./">The Bacterial Genomics Book</a>
+          </h1>
+        </div>
+
+        <div class="page-wrapper" tabindex="-1" role="main">
+          <div class="page-inner">
+
+            <section class="normal" id="section-">
+<div id="reference-based-alignments" class="section level1 hasAnchor" number="6">
+<h1><span class="header-section-number">Chapter 6</span> Reference-based alignments<a href="reference-based-alignments.html#reference-based-alignments" class="anchor-section" aria-label="Anchor link to header"></a></h1>
+<div id="snippy" class="section level2 hasAnchor" number="6.1">
+<h2><span class="header-section-number">6.1</span> Snippy<a href="reference-based-alignments.html#snippy" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>If you are studying a pathogen with low genetic variation you might prefer to do a reference-based alignment rather than a core-gene alignment. The advantage of this is you can work directly with reads rather than having to build assemblies. <a href="https://github.com/tseemann/snippy">Snippy</a> is an easy tool to achieve this.</p>
+<p>The easiest way to do this, particularly if you have hundreds rather than thousands of samples, is to create a tab-delimited file with your IDs and the paths to your fastq files, and run snippy-multi.</p>
+<table>
+<tbody>
+<tr class="odd">
+<td align="left">ERR976479</td>
+<td align="left">ERR976479_1.fastq.gz</td>
+<td align="left">ERR976479_2.fastq.gz</td>
+</tr>
+<tr class="even">
+<td align="left">ERR351174</td>
+<td align="left">ERR351174_1.fastq.gz</td>
+<td align="left">ERR351174_2.fastq.gz</td>
+</tr>
+<tr class="odd">
+<td align="left">ERR576974</td>
+<td align="left">ERR576974_1.fastq.gz</td>
+<td align="left">ERR576974_2.fastq.gz</td>
+</tr>
+<tr class="even">
+<td align="left">ERR11850183</td>
+<td align="left">ERR11850183_1.fastq.gz</td>
+<td align="left">ERR11850183_2.fastq.gz</td>
+</tr>
+</tbody>
+</table>
+<div class="sourceCode" id="cb21"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb21-1"><a href="reference-based-alignments.html#cb21-1" tabindex="-1"></a><span class="va">ref</span><span class="op">=</span>path/to/reference.fasta</span>
+<span id="cb21-2"><a href="reference-based-alignments.html#cb21-2" tabindex="-1"></a><span class="ex">snippy-multi</span> input.tab <span class="at">--ref</span> <span class="va">$ref</span> <span class="op">&gt;</span> snippyscript.sh</span>
+<span id="cb21-3"><a href="reference-based-alignments.html#cb21-3" tabindex="-1"></a><span class="co">#Make it executable</span></span>
+<span id="cb21-4"><a href="reference-based-alignments.html#cb21-4" tabindex="-1"></a><span class="fu">chmod</span> 777 snippyscript.sh</span>
+<span id="cb21-5"><a href="reference-based-alignments.html#cb21-5" tabindex="-1"></a><span class="co">#Run the script</span></span>
+<span id="cb21-6"><a href="reference-based-alignments.html#cb21-6" tabindex="-1"></a><span class="ex">./snippyscript.sh</span></span></code></pre></div>
+<p>If you have many samples it will take a long time for this script to run. In this case you might want to run snippy on individual samples first using <a href="running-commands-on-many-samples.html#loops">loops</a> then create a reference based alignment.</p>
+<div class="sourceCode" id="cb22"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb22-1"><a href="reference-based-alignments.html#cb22-1" tabindex="-1"></a><span class="va">ref</span><span class="op">=</span>path/to/reference.fasta</span>
+<span id="cb22-2"><a href="reference-based-alignments.html#cb22-2" tabindex="-1"></a><span class="co">#Run snippy for individual samples, e.g. using a for loop</span></span>
+<span id="cb22-3"><a href="reference-based-alignments.html#cb22-3" tabindex="-1"></a><span class="ex">snippy</span> <span class="at">--outdir</span> ERR11850183 <span class="at">--ref</span> <span class="va">$ref</span> <span class="at">--R1</span> ERR11850183_1.fastq.gz <span class="at">--R2</span> ERR11850183_2.fastq.gz</span>
+<span id="cb22-4"><a href="reference-based-alignments.html#cb22-4" tabindex="-1"></a><span class="ex">snippy</span> <span class="at">--outdir</span> ERR976479 <span class="at">--ref</span> <span class="va">$ref</span> <span class="at">--R1</span> ERR976479_1.fastq.gz <span class="at">--R2</span> ERR976479_2.fastq.gz</span>
+<span id="cb22-5"><a href="reference-based-alignments.html#cb22-5" tabindex="-1"></a><span class="co">#Create the alignment</span></span>
+<span id="cb22-6"><a href="reference-based-alignments.html#cb22-6" tabindex="-1"></a><span class="ex">snippy-core</span> <span class="at">--prefix</span> core ERR11850183 ERR976479</span></code></pre></div>
+</div>
+<div id="coverage" class="section level2 hasAnchor" number="6.2">
+<h2><span class="header-section-number">6.2</span> Checking coverage<a href="reference-based-alignments.html#coverage" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>You can check the proportion of low coverage (“N”) and zero coverage “-” bases using the <a href="%22https://bioconductor.org/packages/release/bioc/html/Biostrings.html%22">Biostrings</a> package in R.</p>
+<div class="sourceCode" id="cb23"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb23-1"><a href="reference-based-alignments.html#cb23-1" tabindex="-1"></a><span class="fu">library</span>(Biostrings)</span>
+<span id="cb23-2"><a href="reference-based-alignments.html#cb23-2" tabindex="-1"></a><span class="co">#Read in alignment</span></span>
+<span id="cb23-3"><a href="reference-based-alignments.html#cb23-3" tabindex="-1"></a>alignment <span class="ot">=</span> <span class="fu">readDNAStringSet</span>(<span class="st">&quot;alignment.aln&quot;</span>)</span>
+<span id="cb23-4"><a href="reference-based-alignments.html#cb23-4" tabindex="-1"></a><span class="co">#Calculate frequency of each base</span></span>
+<span id="cb23-5"><a href="reference-based-alignments.html#cb23-5" tabindex="-1"></a>frequency <span class="ot">=</span> <span class="fu">as.data.frame</span>(<span class="fu">alphabetFrequency</span>(alignment))</span>
+<span id="cb23-6"><a href="reference-based-alignments.html#cb23-6" tabindex="-1"></a><span class="fu">rownames</span>(frequency) <span class="ot">=</span> <span class="fu">names</span>(alignment)</span>
+<span id="cb23-7"><a href="reference-based-alignments.html#cb23-7" tabindex="-1"></a><span class="co">#Calculate the percentage of N and - for each sample</span></span>
+<span id="cb23-8"><a href="reference-based-alignments.html#cb23-8" tabindex="-1"></a>frequency<span class="sc">$</span>Percent_missing <span class="ot">=</span> <span class="dv">100</span><span class="sc">*</span>(frequency<span class="sc">$</span>N <span class="sc">+</span> frequency<span class="sc">$</span><span class="st">`</span><span class="at">-</span><span class="st">`</span>)<span class="sc">/</span><span class="fu">rowSums</span>(frequency)</span>
+<span id="cb23-9"><a href="reference-based-alignments.html#cb23-9" tabindex="-1"></a><span class="co">#Which samples have over 50% missing?</span></span>
+<span id="cb23-10"><a href="reference-based-alignments.html#cb23-10" tabindex="-1"></a><span class="fu">rownames</span>(frequency[<span class="fu">which</span>(frequency<span class="sc">$</span>Percent_missing <span class="sc">&gt;</span> <span class="dv">50</span>),])</span>
+<span id="cb23-11"><a href="reference-based-alignments.html#cb23-11" tabindex="-1"></a><span class="co">#Write the names of good quality samples to a file</span></span>
+<span id="cb23-12"><a href="reference-based-alignments.html#cb23-12" tabindex="-1"></a>good_quality <span class="ot">=</span> <span class="fu">rownames</span>(frequency[<span class="fu">which</span>(frequency<span class="sc">$</span>Percent_missing <span class="sc">&lt;</span> <span class="dv">50</span>),])</span>
+<span id="cb23-13"><a href="reference-based-alignments.html#cb23-13" tabindex="-1"></a><span class="fu">cat</span>(good_quality, <span class="at">sep =</span> <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>, <span class="at">file =</span> <span class="st">&quot;good_quality_alignment.txt&quot;</span>)</span></code></pre></div>
+</div>
+<div id="sub-setting-an-alignment" class="section level2 hasAnchor" number="6.3">
+<h2><span class="header-section-number">6.3</span> Sub-setting an alignment<a href="reference-based-alignments.html#sub-setting-an-alignment" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>There are many cases where you may want to subset an alignment- for example, to exclude samples that are poor quality, or that are very distant from other samples. In addition to your alignment, you need a text file containing a list of samples you want to keep- one per line, e.g. <em>good_quality_alignment.txt</em> created in <a href="reference-based-alignments.html#coverage">Check coverage</a>.</p>
+<div class="sourceCode" id="cb24"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb24-1"><a href="reference-based-alignments.html#cb24-1" tabindex="-1"></a>seqtk subseq alignment.aln good_quality_alignment.txt <span class="sc">&gt;</span> goodquality.aln</span></code></pre></div>
+</div>
+<div id="detecting-recombination" class="section level2 hasAnchor" number="6.4">
+<h2><span class="header-section-number">6.4</span> Detecting recombination<a href="reference-based-alignments.html#detecting-recombination" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>If you create a tree at this point it may be biased by recombination. <a href="https://github.com/nickjcroucher/gubbins">Gubbins</a> can detect recombinogenic regions in a reference-based alignment and exclude them.</p>
+<div class="sourceCode" id="cb25"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb25-1"><a href="reference-based-alignments.html#cb25-1" tabindex="-1"></a><span class="ex">run_gubbins.py</span> alignment.aln</span></code></pre></div>
+<p>This will give you a .gff file which contains the start and end of each recombination region.</p>
+</div>
+<div id="masking-regions" class="section level2 hasAnchor" number="6.5">
+<h2><span class="header-section-number">6.5</span> Masking regions<a href="reference-based-alignments.html#masking-regions" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<p>Having detected recombination, masking is useful to remove these regions before building a tree. You can use the following commands to convert this to a .bed file, and mask these regions of the genome using bedtools.</p>
+<div class="sourceCode" id="cb26"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb26-1"><a href="reference-based-alignments.html#cb26-1" tabindex="-1"></a><span class="co">#Get co-ordinates from gff file</span></span>
+<span id="cb26-2"><a href="reference-based-alignments.html#cb26-2" tabindex="-1"></a><span class="fu">awk</span> <span class="at">-v</span> OFS=<span class="st">&quot;\t&quot;</span> <span class="st">&#39;{ if($0 !~ /^#/){ print $4, $5 } }&#39;</span> recombination_predictions.gff <span class="op">&gt;</span> coords.txt</span>
+<span id="cb26-3"><a href="reference-based-alignments.html#cb26-3" tabindex="-1"></a><span class="co">#Extract sequence names from alignment</span></span>
+<span id="cb26-4"><a href="reference-based-alignments.html#cb26-4" tabindex="-1"></a><span class="fu">grep</span> <span class="st">&quot;^&gt;&quot;</span> alignment.aln <span class="kw">|</span> <span class="fu">sed</span> <span class="st">&#39;s/^&gt;//&#39;</span> <span class="op">&gt;</span> names.txt</span>
+<span id="cb26-5"><a href="reference-based-alignments.html#cb26-5" tabindex="-1"></a><span class="co">#Create a bed file with every recombinogenic region for every sequence</span></span>
+<span id="cb26-6"><a href="reference-based-alignments.html#cb26-6" tabindex="-1"></a><span class="fu">awk</span> <span class="at">-v</span> OFS=<span class="st">&quot;\t&quot;</span> <span class="st">&#39;NR==FNR {names[NR]=$0; n=NR; next} {for (i=1;i&lt;=n;i++) print names[i], $1, $2}&#39;</span> names.txt coords.txt <span class="op">&gt;</span> recombination.bed</span>
+<span id="cb26-7"><a href="reference-based-alignments.html#cb26-7" tabindex="-1"></a><span class="co">#Mask the alignment</span></span>
+<span id="cb26-8"><a href="reference-based-alignments.html#cb26-8" tabindex="-1"></a><span class="ex">bedtools</span> maskfasta <span class="at">-fi</span> alignment.aln <span class="at">-bed</span> recombination.bed <span class="at">-fo</span> masked_alignment.aln</span></code></pre></div>
+<p>This will replace the recombinogenic region with “N”. You can double check this using the method outlined in <span id="coverage">Checking coverage</span>.</p>
+</div>
+<div id="core-gene-alignment" class="section level2 hasAnchor" number="6.6">
+<h2><span class="header-section-number">6.6</span> Core gene alignment<a href="reference-based-alignments.html#core-gene-alignment" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+
+</div>
+</div>
+            </section>
+
+          </div>
+        </div>
+      </div>
+<a href="genome-assembly.html" class="navigation navigation-prev " aria-label="Previous page"><i class="fa fa-angle-left"></i></a>
+<a href="references.html" class="navigation navigation-next " aria-label="Next page"><i class="fa fa-angle-right"></i></a>
+    </div>
+  </div>
+<script src="libs/gitbook-2.6.7/js/app.min.js"></script>
+<script src="libs/gitbook-2.6.7/js/clipboard.min.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-search.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-sharing.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-fontsettings.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-bookdown.js"></script>
+<script src="libs/gitbook-2.6.7/js/jquery.highlight.js"></script>
+<script src="libs/gitbook-2.6.7/js/plugin-clipboard.js"></script>
+<script>
+gitbook.require(["gitbook"], function(gitbook) {
+gitbook.start({
+  "sharing": {
+    "github": false,
+    "facebook": true,
+    "twitter": true,
+    "linkedin": false,
+    "weibo": false,
+    "instapaper": false,
+    "vk": false,
+    "whatsapp": false,
+    "all": ["facebook", "twitter", "linkedin", "weibo", "instapaper"]
+  },
+  "fontsettings": {
+    "theme": "white",
+    "family": "sans",
+    "size": 2
+  },
+  "edit": {
+    "link": "https://github.com/USERNAME/REPO/edit/BRANCH/05-alignment.Rmd",
+    "text": "Edit"
+  },
+  "history": {
+    "link": null,
+    "text": null
+  },
+  "view": {
+    "link": null,
+    "text": null
+  },
+  "download": ["_main.pdf", "_main.epub"],
+  "search": {
+    "engine": "fuse",
+    "options": null
+  },
+  "toc": {
+    "collapse": "subsection"
+  }
+});
+});
+</script>
+
+</body>
+
+</html>

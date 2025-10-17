@@ -1,0 +1,36 @@
+# Fastq quality control
+
+## FastQC and MultiQC
+
+Fastq quality control can be carried out using [FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/).
+
+```{bash, eval = FALSE}
+#Run on all fastq files in a directory
+fastqc *fastq.gz
+```
+
+[MultiQC](https://github.com/MultiQC/MultiQC) can then be used to create a) An html report, and b) A folder multiqc_data
+
+```{bash, eval = FALSE}
+#Run on all fastq files in a directory
+multiqc .
+```
+
+Based on the contents of multiqc_data/multiqc_fastqc.txt, you may choose to exclude poor quality fastq files.
+
+## Trimming reads
+
+If you don't want to exclude samples, but have reads that drop in quality towards the 3' end, you may wish to trim your reads to improve the quality (although it is debated whether or not this is necessary). One tool for this is [fastp](https://github.com/OpenGene/fastp?tab=readme-ov-file#filtering) to trim or remove poor quality reads.
+
+```{bash, eval = FALSE}
+fastp -i ERR11850183_1.fastq.gz -I ERR11850183_2.fastq.gz -o ERR11850183_trimmed_1.fastq.gz -O ERR11850183_trimmed_2.fastq.gz --cut_front --cut_tail
+```
+
+## Contamination
+
+Even for whole-genome sequencing it is possible you will have contamination, or isolated the wrong species. You can check for this using a metagenome profiler such as [kraken2](https://github.com/DerrickWood/kraken2/wiki/Manual) or [sylph](https://github.com/bluenote-1577/sylph).
+
+```{bash, eval = FALSE}
+db=Directory/containing/kraken/database
+kraken2 --db $db --paired ERR11850183_1.fastq.gz ERR11850183_2.fastq.gz --gzip-compressed --output /dev/null --report ERR11850183_krakenreport
+```

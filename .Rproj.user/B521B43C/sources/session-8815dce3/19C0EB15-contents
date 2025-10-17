@@ -1,0 +1,43 @@
+library(rnaturalearth)
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+
+global$Profile = paste(global$SXT, global$PLE)
+sort(table(global$Profile))
+world_defence = as.data.frame(table(global[which(global$Year < 2018 & global$Year > 2010),c("Country", "Profile")]))
+world_defence = world_defence[order(world_defence$Freq, decreasing = T),]
+world_defence = world_defence[which(!duplicated(world_defence$Country)),]
+world_defence$Country[which(!world_defence$Country %in% world$sovereignt)]
+world_defence$Country = gsub("Tanzania", "United Republic of Tanzania", world_defence$Country)
+world_defence$Country = gsub("Guinea Bissau", "Guinea-Bissau", world_defence$Country)
+
+world = merge(world, world_defence, by.x = "sovereignt", by.y = "Country", all.x = T)
+world = world[which(world$sovereignt != "Antarctica"),]
+
+ggplot(world)  + 
+  geom_sf(aes(fill = Profile), linewidth = 0) + theme_void() + scale_fill_manual(values = c(brewer.pal(3, "RdPu"), "grey"))
+
+#+ 
+  geom_sf(data = basin, linewidth = 0,  fill = brewer.pal(9, "Blues")[1]) + 
+  geom_sf(fill = NA, linewidth = 0.5) + 
+  geom_sf(data =complex, aes(linewidth = ORD_FLOW, color = ORD_FLOW)) + 
+  scale_linewidth(range = c(1,0.2)) + 
+  scale_color_gradient(high = brewer.pal(9, "Blues")[5], low = brewer.pal(9, "Blues")[9]) + theme_void() + xlim(74,96) + ylim(20,32) + 
+  theme(
+    panel.background = element_rect(fill = brewer.pal(9, "Blues")[6])) + new_scale_color() + 
+  geom_jitter(data = s1, aes(x = HOSP_x, y=  HOSP_y, fill = Label), shape = 21, width = 0.03, height = 0.02, size = 2, alpha = 0.8) + theme(legend.position = "bottom") + scale_fill_manual(values = colorRampPalette(brewer.pal(8, "Spectral"))(13)) + theme(legend.position = "none")
+  
+  
+#Bangladesh and India over time
+time = as.data.frame(table(global[which(global$Country %in% c("Bangladesh", "India") & global$Year > 2010),c("Country", "Year", "Profile")]))
+time$ID = paste(time$Country, time$Year)
+for(i in unique(time$ID)){
+  time[which(time$ID == i),"Percentage"] = 100*time[which(time$ID == i),"Freq"]/sum(time[which(time$ID == i),"Freq"])
+}
+time = time[which(time$Profile %in% c("ICE-GEN None", "ICE-GEN PLE11", "ICE-TET PLE1")),]
+
+ggplot(time, aes(x = Year, y = Percentage, color = Profile, group = Profile)) + geom_point() + facet_wrap(~Country) + geom_line()
+
+colorRampPalette(colors=c(a,b))PercentagecolorRampPalette(colors=c(a,b))(10)
+
+ggplot(global[which(global$Country == "Bangladesh" & global$BAPS1 %in% c("BD1", "BD2")),c("Year", "Profile", "BAPS1")], aes(x = Year, fill = Profile)) + geom_bar(color = "black") + facet_wrap(~BAPS1)

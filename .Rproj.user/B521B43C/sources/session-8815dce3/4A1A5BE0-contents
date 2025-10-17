@@ -1,0 +1,1114 @@
+##### Change "Global" dataframe ####
+load(file = "Cholera.Rdata")
+global$MGE_Replacement = ""
+global[grep("K147fs", global$VC_0490.var),"MGE_Replacement"] = "VC0490-K147fs"
+global[grep("VC_0491-ins", global$VSP_II),"MGE_Replacement"] = paste(global[grep("VC_0491-ins", global$VSP_II),"MGE_Replacement"], "VC0491-ins")
+global[grep("VC_0491-VC_0498", global$VSP_II),"MGE_Replacement"] = paste(global[grep("VC_0491-VC_0498", global$VSP_II),"MGE_Replacement"], "ΔVC0491-VC0494")
+global[which(global$VC_0258.assembled != "yes"),"MGE_Replacement"] = paste(global[which(global$VC_0258.assembled != "yes"),"MGE_Replacement"], "wbeT-ins")
+global[which(global$PLE == "PLE1"),"MGE_Replacement"] = paste(global[which(global$PLE == "PLE1"),"MGE_Replacement"] , "PLE1")
+global[which(global$PLE == "PLE11"),"MGE_Replacement"] = paste(global[which(global$PLE == "PLE11"),"MGE_Replacement"] , "PLE11")
+global[which(global$SXT == "ICE-GEN"),"MGE_Replacement"] = paste(global[which(global$SXT == "ICE-GEN"),"MGE_Replacement"] , "ICE-GEN")
+global[which(global$SXT == "ICE-TET"),"MGE_Replacement"] = paste(global[which(global$SXT == "ICE-TET"),"MGE_Replacement"] , "ICE-TET")
+global$MGE_Replacement = trimws(global$MGE_Replacement)
+global[which(global$MGE_Replacement == ""),"MGE_Replacement"] = "None"
+sort(table(global$MGE_Replacement[which(!global$MGE_Replacement %in% levels)]))
+
+df = global[,c("ID", "MGE_Replacement")]
+df$ID = gsub("#", "", df$ID)
+write.csv(df, file = "treetime_mgeprofile.csv", row.names = F, quote = F)
+
+#SXT
+sxt = read.delim("ice_summary2.txt")
+#sxt = sxt[which(sxt$SharedHashes > 700),]
+sxt$MGE = gsub("MK165649.1", "ICE-TET", sxt$MGE)
+sxt$MGE = gsub("KY382507.1", "ICE-GEN", sxt$MGE)
+sxt$MGE = as.character(sxt$MGE)
+no_cds = c("ICEVchMO45",
+"ICEVchVC108",
+"ICEVchVC115",
+"ICEVchVC120",
+"ICEVchVC124",
+"ICEVchVC132",
+"ICEVchVC138",
+"ICEVchVC149",
+"ICEVchVE140",
+"ICEVchVE146",
+"ICEVchVE150",
+"ICEVchVE47")
+
+#Which have same genes?
+sxt_gene_presence <- read.delim("~/Documents/Data Analysis/Vibrio2023/sxt_gene_presence.tab")
+rownames(sxt_gene_presence) = sxt_gene_presence$Gene
+sxt_gene_presence = sxt_gene_presence[,-1]
+colnames(sxt_gene_presence) = gsub("MK165649", "ICE-TET", colnames(sxt_gene_presence))
+colnames(sxt_gene_presence) = gsub("KY382507", "ICE-GEN", colnames(sxt_gene_presence))
+#remove those representing short fragments
+sxt = sxt[-which(sxt$MGE %in% names(which(colSums(sxt_gene_presence) < 25))),]
+#ICEVchInd5 is the same as ICE-GEN 
+sxt = sxt[-which(sxt$MGE %in% c("ICEVchInd5")),]
+
+
+#Based on later results, limit to only a few
+sxt = sxt[which(sxt$MGE %in% c("ICE-GEN", "ICE-TET", "ICEVchBan9", "ICEVchCHN143", "ICEVchInd4")),]
+
+#For all rest, assign top hit
+sxt$MGE = factor(sxt$MGE, levels = unique(c("ICE-GEN", "ICE-TET", unique(sxt$MGE))))
+global$SXT_new = "None"
+for(i in unique(global$ID)){
+  if(nrow(sxt[which(sxt$Sample == i),]) > 0){
+subset = sxt[which(sxt$Sample == i),]
+subset = subset[order(subset$MGE),]
+subset = subset[order(subset$SharedHashes, decreasing = T),]
+if(subset[1,"SharedHashes"] > 700){
+  global[which(global$ID == i),"SXT_new"] = as.character(subset[1,"MGE"])
+}
+}}
+table(global[which(global$SXT == "ICE-TET"),"SXT_new"])
+table(global[which(global$SXT == "ICE-GEN"),"SXT_new"])
+table(global[which(global$SXT == "None"),"SXT_new"])
+table(global[which(global$SXT == "Both matched"),"SXT_new"])
+table(global[which(global$Study == "2014-2018 Surveillance"),c("SXT", "SXT_new")])
+#Those which have none, can assign
+global[which(global$SXT == "None" & global$SXT_new != "None"),"SXT"] = global[which(global$SXT == "None" & global$SXT_new != "None"),"SXT_new"]
+global = global[,-which(colnames(global) == "SXT_new")]
+global2 = global
+rm(list=ls()[which(ls() != "global2")])
+load(file = "Cholera.Rdata")
+global = global2
+rm(global2)
+save.image("Cholera.Rdata")
+
+
+#### Bangladesh to India failing to establish ####
+setwd("~/Documents/Data Analysis/Vibrio2023")
+load(file = "export.Rdata")
+load(file = "Cholera.Rdata")
+sub = export[which(export$parentcountry == "India" & export$Country == "Bangladesh"),]
+nodes = sub[which(sub$numeric.date >= 2010 & sub$Downstream_country < 10),"node"]
+
+#Ones which are tips
+for(i in nodes){
+print(paste("Node", i))
+print(length(getDescendants(global_tree$tree, i) ))
+if(i == nodes[1]){des = data.frame(node = i, descendents = global_tree$data[which(global_tree$data$node %in% getDescendants(global_tree$tree, i) & global_tree$data$isTip == T),"label"])}else{des = rbind(des,  data.frame(node = i, descendents = global_tree$data[which(global_tree$data$node %in% getDescendants(global_tree$tree, i) & global_tree$data$isTip == T),"label"]))}}
+des$descendents = sub("^(([^_]*_)\\w*?)_", "\\1#", des$descendents)
+des = merge(des, global, by.x = "descendents", by.y = "ID")
+
+#1 - 1 sample, BITID
+#2 - 1 sample, Barisal
+#3- 1 sample, Rajshahi
+#4- 2 samples, icddr,b
+#5- 2 samples, iccdd,b
+#6- 4 samples. Geographically distributed, same 3 months
+#7- 8 samples, all Chittagong. 5 refugees
+#global$Category = "Normal"
+global$Category = NA
+global[which(global$ID %in% des$descendents),"Category"] = "Sporadic BD1 cases"
+
+replacement = getDescendants(global_tree$tree, sub[which(sub$numeric.date >= 2010 & sub$Downstream_country > 10),"node"])
+replacement = global_tree$data[which(global_tree$data$node %in% replacement & global_tree$data$isTip == T),"label"]
+replacement = sub("^(([^_]*_)\\w*?)_", "\\1#", replacement)
+global[which(global$ID %in% replacement),"Category"] = "BD1 lineage replacement"
+
+table(global$Category)
+
+
+
+for(i in c("Occupation", "Education","Sex", colnames(global)[c(42:56, 82:90)])){
+print(" ")
+print(i)
+global$variable = global[,i]
+print(table(global[,c("variable", "Category")]))
+global$variable = global[,i]
+print(fisher.test(table(global[,c("variable", "Category")]), simulate.p.value=TRUE)$p.value)
+}
+
+#Only 3
+i="Sanition"
+
+demo = as.data.frame(table(global[which(!is.na(global$variable)),c("Category", "variable")]))
+ggplot(demo, aes(x= Category, fill = variable, y = Freq)) + geom_bar(position = "fill", stat = "identity") + geom_text(aes(label = paste(variable, Freq)), position = position_fill(vjust = 0.5))
+
+i="Large.gathering.week.before"
+global$variable = global[,i]
+global[which(global$Study %in% c("2014-2018 Surveillance") & is.na(global$Category)),"Category"] = "Rest of study"
+
+demo = as.data.frame(table(global[which(!is.na(global$variable)),c("Category", "variable")]))
+demo$Category = factor(demo$Category, levels = c("BD1 lineage replacement", "Sporadic BD1 cases", "Rest of study"))
+a = ggplot(demo, aes(x= Category, fill = variable, y = Freq)) + geom_bar(position = "fill", stat = "identity") + geom_text(aes(label = paste(variable, Freq)), position = position_fill(vjust = 0.5)) + theme_bw() + guides(fill = "none") + ggtitle("Large gathering the week before") + labs(y = "Proportion")
+a
+
+i="Occupation"
+global$variable = global[,i]
+demo = as.data.frame(table(global[which(!is.na(global$variable)),c("Category", "variable")]))
+demo$Category = factor(demo$Category, levels = c("BD1 lineage replacement", "Sporadic BD1 cases", "Rest of study"))
+b = ggplot(demo, aes(x= Category, fill = variable, y = Freq)) + geom_bar(position = "fill", stat = "identity") + geom_text(aes(label = paste(variable, Freq)), position = position_fill(vjust = 0.5)) + theme_bw() + labs(fill = "Occpuation", y = "Proportion") + guides(fill = F) + ggtitle("Occupation") 
+b
+aggregate(demo$Freq, by = list(Category = demo$Category), FUN = sum)
+
+
+grid.arrange(a,b, ncol = 2)
+fisher.test(table(global$Category, global$Occupation == "day labourer"), simulate.p.value=TRUE)
+fisher.test(table(global$Category, global$Occupation == "unemployed"), simulate.p.value=TRUE)
+
+i="Patient.Age"
+global$variable = as.numeric(global[,i])
+global$variable
+ggplot(global, aes(x= Category, y = as.numeric(variable))) + geom_boxplot() + geom_jitter(alpha = 0.1)
+
+i = "Sex"
+
+global$Group
+
+#Sanitation
+#Bottled.Water
+#Occupation
+
+
+View(global[which(gsub("#", "_", global$ID) %in% des),])
+
+sub
+
+View(global[which(global$BAPS3 %in% sub & global$Country == "India"),])
+
+#### ICP1 ####
+
+
+load(file = "Cholera.Rdata")
+setwd("/Users/ab61/Documents/Metagenomes")
+Cholera_endemic1 <- read.csv("Cholera_endemic_408170_2705415.csv")
+Cholera_endemic2 <- read.csv("Cholera_endemic_749906.csv")
+Cholera_endemic = plyr::rbind.fill(Cholera_endemic1, Cholera_endemic2)
+Cholera_endemic[which(Cholera_endemic$BioProject == "PRJEB6358"),"geo_loc_name_country"] = "Bangladesh"
+Cholera_endemic = Cholera_endemic[-which(Cholera_endemic$geo_loc_name_country == ""),]
+Cholera_endemic = Cholera_endemic[-which(Cholera_endemic$geo_loc_name_country == "USA"),]
+Cholera_endemic = Cholera_endemic[-which(Cholera_endemic$geo_loc_name_country == "Poland"),]
+Cholera_endemic = Cholera_endemic[-which(Cholera_endemic$geo_loc_name_country == "uncalculated"),]
+Cholera_endemic = Cholera_endemic[-which(Cholera_endemic$geo_loc_name_country == "Denmark"),]
+Cholera_endemic = Cholera_endemic[-which(Cholera_endemic$geo_loc_name_country == "China"),]
+
+
+
+#View(as.data.frame(table(factor(Cholera_endemic$geo_loc_name_country, levels = sort(unique(c("India","Bangladesh","Afghanistan","Angola","Benin","Bhutan","Burkina Faso","Burundi","Cameroon","China","Democratic Republic of the Congo","Dominican Republic","Ethiopia","Ghana","Haiti","India","Iran","Iraq","Kenya","Lebanon","Malawi","Mozambique","Myanmar","Namibia","Nepal","Niger","Nigeria","Pakistan","Philippines","Rwanda","Somalia","South Sudan","Sudan","Syria","Tanzania","Thailand","Togo","Uganda","Yemen","Zambia","Zimbabwe")))))))
+
+
+
+
+
+ICP1 <- read.delim("ICP1 (2).txt", header=FALSE)
+library(dplyr)
+ICP1$Sample = gsub("kraken/","", ICP1$V1) %>% gsub("_report.*", "", .)
+ICP1$Percent = as.numeric(gsub(".*_report:", "", ICP1$V1))
+ICP1$Reads = ICP1$V3
+Cholera_endemic = merge(Cholera_endemic, ICP1[,c("Sample", "Reads", "Percent")], by.x = "Run", by.y = "Sample", all.x = T, all.y = F)
+Cholera_endemic[which(Cholera_endemic$Reads > 1000),"Run"]
+#View(Cholera_endemic[which(Cholera_endemic$Reads > 1000),])
+
+HaveCholera = readxl::read_excel("~/Documents/Data Analysis/Enterobacteria/HaveCholera.xlsx", col_names = FALSE)
+Cholera_endemic$Cholera = "No cholera"
+Cholera_endemic[which(Cholera_endemic$Run %in% HaveCholera$...1),"Cholera"] = "Cholera"
+Cholera_endemic[which(is.na(Cholera_endemic$Percent)),"Percent"] = 0
+Cholera_endemic$Category = "-"
+Cholera_endemic[which(Cholera_endemic$Percent >= 0.01 & Cholera_endemic$Cholera == "Cholera"),"Category"] = "ICP1 and Vibrio cholerae"
+Cholera_endemic[which(Cholera_endemic$Percent < 0.01 & Cholera_endemic$Cholera == "Cholera"),"Category"] = "Vibrio cholerae"
+Cholera_endemic[which(Cholera_endemic$Percent >= 0.01 & Cholera_endemic$Cholera == "No cholera"),"Category"] = "ICP1"
+
+
+load("/Users/ab61/Documents/Data Analysis/Vibrio2023/treetime_samples/Microbiomefastq.Rdata")
+Cholera_endemic = merge(Cholera_endemic, all[,c("Run", "fastq1", "fastq2")], by = "Run")
+
+cat(c(paste0("wget -nc ", Cholera_endemic[which(Cholera_endemic$Percent >= 0.01 & Cholera_endemic$Cholera == "Cholera"),"fastq1"]), paste0("wget -nc ", Cholera_endemic[which(Cholera_endemic$Percent >= 0.01),"fastq2"])), sep = "\n")
+
+count = as.data.frame(table(Cholera_endemic[,c("geo_loc_name_country", "Category")]))
+for(i in unique(count$geo_loc_name_country)){
+  count[which(count$geo_loc_name_country == i),"Percent"] = 100*count[which(count$geo_loc_name_country == i),"Freq"]/sum(count[which(count$geo_loc_name_country == i),"Freq"] )
+}
+count[which(count$Freq > 0),"Label"] = count[which(count$Freq > 0),"Freq"]
+#Add total number of genomes
+count= merge(count, as.data.frame(table(Cholera_endemic$geo_loc_name_country)), by.x = "geo_loc_name_country", by.y = "Var1", all.x = T)
+count$Label2 = paste0(count$geo_loc_name_country, " (n=", count$Freq.y, ")")
+count$Label2 = factor(count$Label2, levels = rev(unique(sort(count$Label2))))
+
+ggplot(count[which(count$Category != "-"),], aes(x = Label2, y = Percent, fill = Category)) + geom_bar(stat = "identity", color = "black", size = 0.2) + coord_flip() + theme_bw() + labs(x = "Country",y = "% total microbiomes") + geom_text(aes(label = Label), position = position_stack(vjust = .5), size = 3) + theme(panel.grid = element_blank(), legend.position = "bottom") + scale_fill_manual(values = c("deeppink", "deeppink3", "grey")) + geom_hline(yintercept = 0, size =0.2)
+ggsave("/Users/ab61/Documents/Data analysis/Vibrio2023/ICP1_count.svg", width = 10, height = 5)
+
+
+# metagenome = read.table("/Users/ab61/Documents/Data Analysis/Vibrio2023/Metagenome_summary.txt", header = T)
+# Cholera_endemic = merge(Cholera_endemic, metagenome, by.x = "Run", by.y = "ID", all.x = T)
+# #View(Cholera_endemic[,c(paste0("csy", 1:4), paste0("cas", c(1,3)))])
+# Cholera_endemic$CRISPR = apply( Cholera_endemic[,c(paste0("csy", 1:4), paste0("cas", c(1,3)))] , 1 , paste , collapse = "-" )
+# Cholera_endemic$CRISPR[grep("yes", Cholera_endemic$CRISPR)] = "CRISPR"
+# Cholera_endemic$CRISPR[grep("NA", Cholera_endemic$CRISPR)] = NA
+# Cholera_endemic$CRISPR[which(Cholera_endemic$CRISPR == "no-no-no-no-no-no")] = "None"
+# table(Cholera_endemic[which(Cholera_endemic$CRISPR == "None"),"odn"])
+# table(Cholera_endemic[which(Cholera_endemic$CRISPR == "CRISPR"),"odn"])
+# #View(Cholera_endemic[which(Cholera_endemic$CRISPR == "CRISPR"),])
+# Cholera_endemic[which(Cholera_endemic$CRISPR == "CRISPR" & Cholera_endemic$odn == "yes"),"CRISPR"] = "Both"
+# Cholera_endemic[which(Cholera_endemic$CRISPR == "None" & Cholera_endemic$odn == "yes"),"CRISPR"] = "odn"
+# ggplot(as.data.frame((Cholera_endemic[which(!is.na(Cholera_endemic$CRISPR)),c("CRISPR","PLE", "SXT", "ctxB")])), aes(x = CRISPR)) + geom_bar(aes(fill = PLE), position = "fill")
+# ggplot(as.data.frame((Cholera_endemic[which(!is.na(Cholera_endemic$CRISPR)),c("CRISPR","PLE", "SXT", "ctxB")])), aes(x = CRISPR)) + geom_bar(aes(fill = SXT), position = "fill")
+
+# ggplot(Cholera_endemic[which(!is.na(Cholera_endemic$CRISPR)),], aes(x = ctxB)) + geom_bar(aes(fill = CRISPR), position = "fill") + facet_wrap(~geo_loc_name_country)
+# 
+# ggplot(Cholera_endemic[which(Cholera_endemic$Percent > 0.01),], aes(x = CRISPR)) + geom_bar(aes(fill = ctxB), position = "fill") + facet_wrap(~geo_loc_name_country)
+
+
+
+
+#ggplot(as.data.frame((Cholera_endemic[which(!is.na(Cholera_endemic$CRISPR)),c("CRISPR","PLE", "SXT", "ctxB")])), aes(x = CRISPR)) + geom_bar(aes(fill = SXT_newggplot(as.data.frame((Cholera_endemic[which(!is.na(Cholera_endemic$CRISPR)),c("CRISPR","PLE", "SXT", "ctxB")])), aes(x = CRISPR)) + geom_bar(aes(fill = ctxB), position = "fill")
+
+# 
+# 
+# supp = Cholera_endemic[,c("BioProject","Center.Name", "Run", "geo_loc_name_country","Collection_Date", "Cholera", "Reads","Percent", "odn", "cas1", "cas3", "csy1", "csy2",  "csy3", "csy4", "PLE", "SXT", "ctxB"),]
+# 
+# supp$`Meta-assembled genome` = NA
+# colnames(supp)[c(4,6:8)] = c("Country", "Vibrio cholerae present", "ICP1_reads", "ICP1_percent")
+# 
+
+#Download all ones which had cholera OR ICP1
+# no_na = function(x){x[which(!is.na(x))]}
+# cat(paste("wget -nc", c(Cholera_endemic[which(Cholera_endemic$Reads > 1000 | Cholera_endemic$Percent >= 0.01 | Cholera_endemic$Cholera == "Cholera"),"fastq1"], no_na(Cholera_endemic[which(Cholera_endemic$Reads > 1000 | Cholera_endemic$Percent >= 0.01 | Cholera_endemic$Cholera == "Cholera"),"fastq2"]))), sep = "\n", file = "download_relevant_metagenomes.sh")
+table(Cholera_endemic$BioProject)
+supp3 = Cholera_endemic[,c("Run", "BioProject", "Collection_Date", "geo_loc_name_country", "Center.Name","Cholera", "Reads","Percent")]
+supp3$Center.Name =  tools::toTitleCase(tolower(supp3$Center.Name))
+colnames(supp3) = c("EBI.ENA", "BioProject", "Collection_Date", "Country", "Center_Name","Cholera_Present", "ICP1_Reads","ICP1_Percent")
+supp3[which(supp3$ICP1_Percent == 0 & is.na(supp3$ICP1_Reads)),"ICP1_Reads"] = 0
+
+write.csv(supp3, "/Users/ab61/Documents/Data Analysis/Vibrio2023/SupplementaryDocument3.csv",row.names = F)
+
+colnames(global)
+
+#ICP1 tree
+setwd("/Users/ab61/Documents/Data Analysis/Vibrio2023")
+icp1_tree =  read.tree("ind_icp1.tree.file")
+icp1_tree = midpoint.root(icp1_tree)
+ggtree(icp1_tree)
+icp1_tree_data = merge(fortify(icp1_tree), icp1_metadata, by.x = "label", by.y = "ID", all.x = T)
+icp1_tree$tip.label = sub("^([^_]*)_([^_]*)_", "\\1_\\2#",icp1_tree$tip.label)
+
+simple =keep.tip(icp1_tree, c(32,31,22,5,39, 88))
+simple = ape::rotate(simple, 11)
+ggtree(simple)
+
+View(merge(fortify(simple), icp1_metadata, by.x = "label", by.y = "ID", all.x = T))
+
+
+#Get together metadata plyr::rbind.fill(Cholera_endemic1, Cholera_endemic2)
+Cholera_endemic$ctxB_type = NA
+Cholera_endemic[which(Cholera_endemic$Run %in% c("DRR251917", "DRR251939")), "ctxB_type"] = "ctxB7"
+Cholera_endemic[which(Cholera_endemic$Run %in% c("ERR866575", "ERR866578", "SRR12874577")), "ctxB_type"] = "ctxB1"
+mags = Cholera_endemic[which(Cholera_endemic$Reads >= 1000),c("Run", "geo_loc_name_country", "Collection_Date", "ctxB_type")]
+mags
+colnames(mags) = c("ID", "Country", "Date", "ctxB_type")
+#mags$Year = as.numeric(gsub("-.*","",mags$Date))
+mags[grep("-", mags$Date, invert = T),"Date"] = paste0(mags[grep("-", mags$Date, invert = T),"Year"], "-XX-XX")
+mags[grep("^[^-]*-[^-]*$", mags$Date),"Date"] = paste0(mags[grep("^[^-]*-[^-]*$", mags$Date),"Date"], "-XX")
+mags$Source = "MAG"
+
+#Get associated MGEs too
+mges = read.table("MAGS_ICP1_mashsummary.txt")
+mges$V2 = as.numeric(gsub("[/].*", "", mges$V2))
+mges = mges[which(mges$V2 > 700),]
+#Most likely ICE-TET
+mges_summary = data.frame(sample = unique(mges$V6), PLE = "None", SXT = "None")
+mges_summary[which(mges_summary$sample %in% mges[which(mges$V5 == "PLE1.fa"),"V6"]),"PLE"] = "PLE1"
+
+mges_summary[which(mges_summary$sample %in% mges[which(mges$V5 == "KY382507.1.fa"),"V6"]),"SXT"] = "ICE-GEN"
+mges_summary[which(mges_summary$sample %in% mges[which(mges$V5 == "MK165649.1.fa"),"V6"]),"SXT"] = "ICE-TET"
+mges_summary[which(mges_summary$sample %in% mges[which(mges$V5 == "MK165649.1.fa"),"V6"] & mges_summary$sample %in% mges[which(mges$V5 == "KY382507.1.fa"),"V6"]),"SXT"] = "Both"
+mags = merge(mags, mges_summary, by.x = "ID", by.y = "sample", all.x = T)
+#Cholera_endemic = merge(Cholera_endemic, mges_summary, by.x = "Run", by.y = "sample", all.x = T)
+
+load(file = "~/Documents/Data Analysis/Vibrio2023/Cholera.Rdata")
+global$ctxB_type
+wgs = global[,c("ID", "Country", "Date", "Year", "ctxB_type", "PLE", "SXT")]
+wgs$Source = "V. cholerae WGS"
+exclude$Date = paste(exclude$Year, stringr::str_pad(exclude$Month, 2, pad = "0"),  stringr::str_pad(exclude$Day, 2, pad = "0"), sep = "-")
+exclude$Date = gsub("NA", "XX", exclude$Date)
+wgs2 = exclude[,c("ID", "Country.clean", "Date", "Year", "ctxB_type", "PLE", "SXT")]
+colnames(wgs2)[2] = "Country"
+wgs2$Source =  "V. cholerae WGS"
+
+NCBI_ICP1 <- readxl::read_excel("~/Documents/Metagenomes/NCBI_ICP1.xlsx")
+NCBI_ICP1 = as.data.frame(NCBI_ICP1[,c("Assembly Accession", "Year", "Date", "Country")])
+colnames(NCBI_ICP1)[1] = "ID"
+NCBI_ICP1$Source = "NCBI Assembly"
+
+icp1_metadata = rbind.fill(mags, wgs, NCBI_ICP1, wgs2)
+
+
+icp1_metadata$ID[grep("^GC", icp1_metadata$ID)] = gsub("[.]1", "", icp1_metadata$ID[grep("^GC", icp1_metadata$ID)] )
+icp1_tree$tip.label[which(!icp1_tree$tip.label %in% icp1_metadata$ID)]
+
+odn_crispr <- read.delim("~/Documents/Metagenomes/odn_crispr.tab")
+odn_crispr[grep("cas|csy", odn_crispr$Genes),"Genes"] = "CRISPR"
+odn_crispr[grep("odn", odn_crispr$Genes),"Genes"] = "odn"
+
+icp1_metadata = merge(icp1_metadata, odn_crispr, by.x = "ID", by.y = "V1", all.x = T)
+Cholera_endemic = merge(Cholera_endemic, odn_crispr, by.x = "Run", by.y = "V1", all.x = T)
+Cholera_endemic[which(Cholera_endemic$Run %in% icp1_tree$tip.label),]
+
+#Separate supplementary data for Cholera_endemic and tree
+
+
+table(icp1_metadata$Country, icp1_metadata$Genes)
+
+icp1_metadata[grep("-", invert = T, icp1_metadata$Date),]
+
+treetime = icp1_metadata[which(icp1_metadata$ID %in% icp1_tree$tip.label),]
+treetime$ID = gsub("#", "_", treetime$ID)
+icp1_metadata[which(icp1_metadata$Country == "India" & icp1_metadata$ID %in% icp1_tree$tip.label),]
+
+icp1_metadata[which(icp1_metadata$ID %in% icp1_tree$tip.label),]
+
+
+write.csv(treetime, "icp1treetime.csv", quote = F, row.names = F)
+
+#Add in coverage
+counts = read.delim("icp1_counts.tsv")
+colnames("counts")
+counts$coverage = 100*rowSums(counts[,c("A", "C", "G", "T", "a", "c", "g", "t")])/rowSums(counts[,2:12])
+icp1_metadata = merge(icp1_metadata, counts[,c("ID", "coverage")], by = "ID", all.x = T)
+
+cat(paste0(icp1_metadata[which(icp1_metadata$coverage > 50),"ID"], ".gff"))
+
+#Include ena IDs
+ena = read.csv("SupplementaryDocument1.csv")
+icp1_metadata = merge(icp1_metadata, ena[,c("ID", "ENA_id")], by = "ID", all.x= T)
+icp1_metadata$ID = gsub("#", "_", icp1_metadata$ID)
+icp1_tree$tip.label = gsub("#", "_", icp1_tree$tip.label)
+supp = icp1_metadata[which(icp1_metadata$ID %in% icp1_tree$tip.label),c("ID","ENA_id","Country", "Genes", "Source", "PLE", "SXT", "ctxB_type")]
+supp$ID = sub("^(([^_]*_[^_]*)_)","\\1#", supp$ID)
+supp$ID = gsub("_#", "#", supp$ID)
+write.csv(supp, file = "/Users/ab61/Documents/Data Analysis/Vibrio2023/SupplementaryDocument4.csv", row.names  = F)
+
+
+supp[which(!is.na(supp$EBI.ENA)),"ID"] = supp[which(!is.na(supp$EBI.ENA)),"EBI.ENA"]
+
+
+heatmap = icp1_metadata[which(icp1_metadata$ID %in% icp1_tree$tip.label),c("ID","Country", "Genes", "Source", "PLE", "SXT", "ctxB_type")]
+rownames(heatmap) = heatmap$ID
+heatmap = heatmap[,-1]
+
+ggtree(simple) + geom_tiplab()
+
+#Different trees
+ref_tree = read.tree("goodicp1.aln.treefile")
+ref_tree$tip.label
+pan_tree = read.tree("core_gene_alignment_filtered_snps.aln.treefile")
+pan_tree$tip.label
+core_tree = read.tree("icp1_core_tree.treefile")
+
+rownames(heatmap) = gsub("#", "_", rownames(heatmap))
+heatmap$SXT = gsub("SXT_ICE_TET_MK165649", "ICE-TET", heatmap$SXT)
+heatmap$SXT = gsub("SXT_ICE_GEN_KY382507", "ICE-GEN", heatmap$SXT)
+heatmap[which(heatmap$SXT == "None"),"SXT"] = NA
+heatmap[which(heatmap$PLE == "None"),"PLE"] = NA
+heatmap[which(heatmap$ctxB_type == "None"),"ctxB_type"] = NA
+for(i in 1:ncol(heatmap)){
+  heatmap[,i][which(!is.na(heatmap[,i]))] = paste(colnames(heatmap)[i], heatmap[,i][which(!is.na(heatmap[,i]))], sep = ": ")
+}
+icp1_tree$tip.label[which(!icp1_tree$tip.label %in% rownames(heatmap))]
+icp1_tree$tip.label = gsub("#", "_", icp1_tree$tip.label)
+
+#Match colors to mega heatmap
+colnames(heatmap)[6] = "ctxB type"
+icp1_tree$tip.label
+
+ggtree(icp1_tree)
+
+gheatmap(ggtree(icp1_tree), heatmap,  colnames_angle = 90, colnames_offset_y = -10, font.size = 4) + scale_fill_manual(values = c(brewer.pal(9, "GnBu")[c(5)], "grey", brewer.pal(9, "GnBu")[c(8)], "grey20", brewer.pal(9, "Set1")[c(1,5)], brewer.pal(4,"RdPu")[c(2,4)],brewer.pal(10,"Spectral")[1], brewer.pal(3, "Blues"), brewer.pal(8,"Set2")[2:3]))
+
+
+ggsave("ICP1tree.svg", width = 14, height = 10)
+
+#Create collapsed version
+
+
+#, colnames_offset_y = -450,   font.size = 4, width = 0.5, offset = 50
+#global_tree_figure = gheatmap(t_label + ggtree::vexpand(.2, -1), hmap, color = NA, colnames_angle = 90, colnames_offset_y = -450,   font.size = 4, width = 0.5, offset = 50) + scale_fill_manual(
+# values = c(brewer.pal(7, "Set1"), #ctxB
+#            c("grey95", "grey85", brewer.pal(8, "Dark2")[1]),#Genes
+#            brewer.pal(3, "RdPu"),
+#            brewer.pal(8, "Dark2")[1],
+#            lineage_col,#Lineages
+#            "white",
+#            brewer.pal(3, "Set2")[1:2],
+#            brewer.pal(10, "Spectral"), #PLE
+#            colors[order(colors$BAPS3), "col"],
+#            
+#            brewer.pal(5, "Purples"),
+#            brewer.pal(3, "Set2"),
+#            c("grey", colorRampPalette(brewer.pal(9, "GnBu"))(9)),
+#            brewer.pal(9, "Set3"))
+
+display.brewer.all() 
+
+
+
+
+bdpost2017 = icp1_metadata[which(icp1_metadata$Country == "Bangladesh" & icp1_metadata$Genes == "odn" & icp1_metadata$Year > 2017), "ID"]
+bdpre2017_odn = icp1_metadata[which(icp1_metadata$Country == "Bangladesh" & icp1_metadata$Year < 2017 & icp1_metadata$Genes == "odn" ), "ID"]
+bd_crispr = icp1_metadata[which(icp1_metadata$Country == "Bangladesh" & icp1_metadata$Year < 2017 & icp1_metadata$Genes == "CRISPR" ), "ID"]
+india_post2017 = icp1_metadata[which(icp1_metadata$Country == "India" & icp1_metadata$Date > 2017), "ID"]
+india_pre2017 = icp1_metadata[which(icp1_metadata$Country == "India" & icp1_metadata$Date < 2017), "ID"]
+
+#icp1_snpdists <- read.delim("~/Documents/Data Analysis/Vibrio2023/icp1_snpdists.txt")
+icp1_snpdists <- read.delim("~/Documents/Data Analysis/Vibrio2023/icp1_core_snpdist")
+colnames(icp1_snpdists)
+colnames(icp1_snpdists)[2:ncol(icp1_snpdists)] = icp1_snpdists$snp.dists.0.7.0
+icp1_snpdists = melt(icp1_snpdists)
+colnames(icp1_snpdists) = c("ID1", "ID2", "Distance")
+icp1_snpdists = merge(icp1_snpdists, icp1_metadata, by.x = "ID1", by.y = "ID")
+icp1_snpdists = merge(icp1_snpdists, icp1_metadata, by.x = "ID2", by.y = "ID")
+icp1_snpdists = icp1_snpdists[which(icp1_snpdists$coverage.x > 50 & icp1_snpdists$coverage.y > 50),]
+icp1_snpdists$Category = NA
+icp1_snpdists[which(icp1_snpdists$ID1 %in% bdpost2017 & icp1_snpdists$ID2 %in% bdpre2017_odn),"Category"] = "BD post-2017 vs BD pre-2017 odn"
+
+icp1_snpdists[which(icp1_snpdists$ID1 %in% bdpost2017 & icp1_snpdists$ID2 %in% bd_crispr),"Category"] = "BD post-2017 vs CRISPR"
+icp1_snpdists[which(icp1_snpdists$ID1 %in% bdpost2017 & icp1_snpdists$ID2 %in% india_post2017),"Category"] = "BD post-2017 vs India"
+icp1_snpdists[which(icp1_snpdists$ID1 %in% bdpost2017 & icp1_snpdists$ID2 %in% india_pre2017),"Category"] = "BD post-2017 vs pre-2017 India"
+
+#india_post2017
+ggplot(icp1_snpdists[which(!is.na(icp1_snpdists$Category)),], aes(x = Category, y = Distance)) + geom_jitter()
+
+#What did the CRISPR ones descend from?
+View(icp1_snpdists[which(icp1_snpdists$ID1 %in% bd_crispr & (icp1_snpdists$ID2 %in% c(bdpre2017_odn))),])
+
+
+#Is the new odn+ ICP1 due to recombination, or are the SNPs more divergent along the whole genome?
+dna <- readDNAStringSet("icp1_core.aln")
+
+for(j in  which(!is.na(icp1_snpdists$Category))){
+   
+  d = dna[c(icp1_snpdists[j,"ID1"],icp1_snpdists[j,"ID2"])]
+  
+  window_results = data.frame(position = seq(from = 1, to = 80000, by = 1000), pi = NA)
+  for(i in seq(from = 1, to = 125000, by = 1000)){
+    print(i)
+    window_results[which(window_results$position == i),"pi"] = pegas::nuc.div(as.DNAbin(subseq(d, start = i, end = i+1000)))  
+  }
+window_results$ID1 = icp1_snpdists[j,"ID1"]
+window_results$ID2 = icp1_snpdists[j,"ID2"]
+window_results$Category = icp1_snpdists[j,"Category"]
+  if(j == which(!is.na(icp1_snpdists$Category))[1]){window_all = window_results}else{window_all =rbind(window_all, window_results)}
+}
+
+ggplot(window_all, aes(x =position, y =  pi, color = Category))+ geom_line(aes(group = paste(ID2, ID1))) + facet_wrap(~Category)
+
+
+#SNP distance core genome
+
+
+
+
+
+window_results$Comparison = "vs India"
+window_results_crispr$Comparison = "vs CRISPR+"
+window_results = rbind(window_results, window_results_crispr)
+
+ggplot(window_results, aes(x = position, y = pi)) + geom_line(aes(color = Comparison))
+
+
+
+
+View(icp1_snpdists[which(icp1_snpdists$ID1 %in% bdpost2017 & !(icp1_snpdists$ID2 %in% bdpost2017)),])
+
+ggplot(icp1_snpdists, aes(x = Category, y = Distance)) + geom_jitter()
+
+View(icp1_snpdists[which(icp1_snpdists$Category == "BD post-2017 vs BD pre-2017"),])
+
+#Create core genome alignment tree
+table(heatmap[,c("Genes", "ctxB_type")])
+heatmap[which(heatmap$Country == "India"),]
+
+heatmap[which(heatmap$Country == "Bangladesh"),]
+
+#Try SNP distance
+
+
+ggplot(icp1_snpdists, aes(x = paste(Country.x, Country.y), y = Distance)) + geom_jitter() + facet_wrap(~Genes.x) + coord_flip()
+
+for(i in unique(icp1_snpdists$Country.x)){
+  print(i)
+print(quantile(icp1_snpdists[which(icp1_snpdists$Country.x == i & icp1_snpdists$Country.y == i),"Distance"]))
+}
+
+rownames(heatmap[which(heatmap$Country == "Yemen"),])
+
+
+
+
+
+ggplot(icp1_snpdists[which(icp1_snpdists$Genes.x == "odn"),], aes(x = Country.x, y = Distance)) + geom_jitter() + facet_wrap(~Country.y) + coord_flip()
+
+
+
+ggplot(icp1_snpdists[which(icp1_snpdists$Country.x == icp1_snpdists$Country.y),], aes(x = Country.x, y = Distance)) + geom_jitter()  + coord_flip() + geom_boxplot()
+
+#dna <- readDNAStringSet("icp1_ref.aln")
+dna <- readDNAStringSet("icp1_core.aln")
+library(pegas)
+pi =data.frame(Country = c("Democratic Republic of the Congo", "Yemen","India", "Bangladesh"), pi = NA)
+for(i in pi$Country){
+  print(i)
+  subset = icp1_metadata[which(icp1_metadata$Country == i & icp1_metadata$Genes == "odn"),"ID"]
+  subset = subset[which(subset %in% names(dna))]
+  subset= dna[subset]
+  subset = as.DNAbin(subset)
+  pi[which(pi$Country == i), "pi"] <- nuc.div(subset)
+}
+pi
+pi_core = pi
+pi_core$pi = pi_core$pi*10000
+
+
+dna <- readDNAStringSet("icp1_pan.aln")
+pi =data.frame(Country = c("Democratic Republic of the Congo", "Yemen","India", "Bangladesh"), pi = NA)
+for(i in pi$Country){
+  print(i)
+  subset = icp1_metadata[which(icp1_metadata$Country == i & icp1_metadata$Genes == "odn"),"ID"]
+  subset = subset[which(subset %in% names(dna))]
+  subset= dna[subset]
+  subset = as.DNAbin(subset)
+  pi[which(pi$Country == i), "pi"] <- nuc.div(subset)
+}
+pi_pan = pi
+
+
+
+
+
+pi[nrow(pi)+1,"Country"] = "Bangladesh (CRISPR)"
+subset = icp1_metadata[which(icp1_metadata$Country == "Bangladesh" & icp1_metadata$Genes == "CRISPR"),"ID"]
+subset = subset[which(subset %in% names(dna))]
+subset= dna[subset]
+pi[which(pi$Country == "Bangladesh (CRISPR)"), "pi"] <- nuc_diversity(subset)
+ggplot(pi, aes(x = Country, y = pi)) + geom_bar(stat = "identity")
+
+
+drc = icp1_metadata[which(icp1_metadata$Country == "Democratic Republic of the Congo"),"ID"]
+drc = dna[drc]
+drc <- nuc_diversity(drc)
+
+
+
+
+
+pi_value
+cat("Nucleotide diversity (pi):", pi_value, "\n")
+
+
+icp1_metadata
+ggtree(icp1_tree) + geom_nodelab()
+
+
+
+#### Within-country representativeness ####
+setwd("~/Documents/Data Analysis/Cholera")
+load(file = "~/Documents/Data Analysis/Vibrio2023/Cholera.Rdata")
+
+chol_metadata <- read_excel("Surveillance Data/Epidata (01-May-2014-30-June-2018).xlsx", sheet = "VC Positives")
+chol_metadata = chol_metadata[which(!is.na(chol_metadata$CID)),]
+awd_metadata = as.data.frame(read_excel("Surveillance Data/Epidata (01-May-2014-30-June-2018).xlsx"))
+awd_metadata$Date = as.Date(paste(awd_metadata$DOC_Y, awd_metadata$DOC_M, awd_metadata$DOC_D, sep ="-"))
+HospitalGPS <- read.csv("Surveillance Data/HospitalGPS.csv")
+awd_metadata = merge(awd_metadata, HospitalGPS, by = "HOSP", all.x = T)
+chol_metadata = merge(chol_metadata, HospitalGPS, by = "HOSP", all.x = T)
+chol_metadata$Division = gsub("Chattogram", "Chittagong", chol_metadata$Division)
+
+x = merge(as.data.frame(table(awd_metadata$Division, awd_metadata$DOC_Y)), as.data.frame(table(chol_metadata$Division, chol_metadata$DOC_Y)), by = "Var1", all.x = T, all.y = T)
+x = x[which(x$Var2.x == x$Var2.y),]
+x = x[,-4]
+colnames(x) = c("Division", "Year", "AWD", "Cholera")
+x = merge(x, as.data.frame(table(global[which(global$Study == "2014-2018 Surveillance"),c("Division", "Year")])), by = "Division", all.x = T, all.y = T)
+x = x[which(as.character(x$Year.x) == as.character(x$Year.y)),]
+x = x[,-5]
+colnames(x)[c(2,5)] = c("Year", "Final analysis")
+x = merge(x, data.frame(Population=c(9100102, 33202326, 44215107, 17416645, 12225498, 20353119, 17610956, 11034863), Division = sort(unique(x$Division))), by = "Division")
+
+#What if including excluded?
+sequenced = rbind.fill(global, exclude)
+x = merge(x, as.data.frame(table(sequenced[which(sequenced$Study %in% c("2014-2018 Surveillance", "2014-2018 Surveillance (This study)")),c("Year", "Division")])), by = "Division", all.x = T, all.y = T)
+x = x[which(as.character(x$Year.x) == as.character(x$Year.y)),]
+x = x[,-2]
+colnames(x)[6:7] = c("Year", "Sequenced")
+x = reshape2::melt(x)
+x$label = gsub("AWD", "Acute watery diarrhoea cases", as.character(x$variable))
+x$label = gsub("Cholera", "Cholera cases", x$label)
+x$variable = factor(x$variable, levels = c("Population", "AWD", "Cholera", "Sequenced", "Final analysis"))
+x$label = factor(x$label, levels = c("Population", "Acute watery diarrhoea cases", "Cholera cases", "Sequenced", "Final analysis"))
+
+
+#Do a chisquared test for each step?
+for(y in unique(x$Year)){
+  print(y)
+  for(j in 1:4){
+    print(j)
+    compare = merge(x[which(x$Year == y & x$variable == levels(x$variable)[j]),], x[which(x$Year == y & x$variable == levels(x$variable)[j+1]),], by = "Division")  
+    compare = compare[which(compare$value.x > 0 | compare$value.y > 0),]
+    x[which(x$Year == y & x$variable == levels(x$variable)[j])[1],"p"] = chisq.test(as.matrix(compare[,c("value.x", "value.y")]))$p.value
+  }}
+
+ggplot(x, aes(x = label, y = value, fill = Division)) + geom_bar(stat = "identity",position = "fill") + facet_wrap(~Year, ncol = 5) + geom_text(aes(label = signif(p,2)), y =1, nudge_x = 0.5,  nudge_y = 0.5) + theme_bw() + scale_fill_brewer(palette = "Spectral") + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + labs(x = "Stage of analysis", y ="Proportion")
+
+ggsave("Representation.svg", width = 15, height = 5)
+
+
+x$ID = paste(x$Year, x$variable)
+for(i in unique(x$ID)){
+  x[which(x$ID == i),"Percent"] = 100*x[which(x$ID == i),"value"]/sum(x[which(x$ID == i),"value"] )
+}
+
+#What if sub-sampled so AWD cases reflected whole population, while still same AWD:cholera ratio?
+x$variable = make.names(as.character(x$variable))
+sum(x[which(x$variable == "Cholera"),"value"])
+table(chol_metadata$DOC_Y, chol_metadata$Division)
+  
+for(i in 2014:2018){
+
+df = dcast(unique(x[which(x$Year == i & (!x$Division %in% c("Mymenshing"))),c("Division", "variable","value")]), Division~variable, id.vars = "Division", value.var = "value")
+# total diarrhoea and cholera counts
+total_D <- sum(df$AWD)
+total_C <- sum(df$Cholera)
+
+# diarrhoea:cholera ratio
+ratio_DC <- total_D / total_C
+
+# expected diarrhoea proportional to population
+df$D_expected <- round(df$Population / sum(df$Population) * total_D)
+
+# expected cholera adjusted to maintain ratio
+df$C_expected <- round(df$D_expected / ratio_DC)
+
+# cap expected values at observed
+df$D_subsample <- pmin(df$AWD, df$D_expected)
+
+df$C_subsample <- pmin(df$Cholera, df$C_expected)
+
+df$Year = i
+df$Cut = floor(df$C_subsample/max(df$C_subsample/df$Final.analysis))
+
+
+if(i == 2014){adjusted = df}else{adjusted = rbind(adjusted, df)}
+}
+
+adjusted[which(adjusted$C_subsample > adjusted$Final.analysis),]
+sum(adjusted$C_subsample)
+sum(adjusted$Cut)
+#641 if remove Ranpur
+#497 if just remove Mymenshing and Khulna
+
+#Try grouping together divisions
+x$Division = as.character(x$Division)
+for(y in unique(x$Year)){
+  for(v in unique(x$variable)){
+    x[which(x$Year == y & x$variable == v & x$Division %in% c("Khulna", "Barisal")),"value"] = sum( x[which(x$Year == y & x$variable == v & x$Division %in% c("Khulna", "Barisal")),"value"])
+    x[which(x$Year == y & x$variable == v & x$Division %in% c("Khulna", "Barisal")),"Division"] = "Southern Bengal"
+    
+    x[which(x$Year == y & x$variable == v & x$Division %in% c("Rajshahi", "Rangpur")),"value"] = sum( x[which(x$Year == y & x$variable == v & x$Division %in% c("Rajshahi", "Rangpur")),"value"])
+    x[which(x$Year == y & x$variable == v & x$Division %in% c("Rajshahi", "Rangpur")),"Division"] = "Northern Bengal"
+  }
+}
+x
+x = unique(x)
+
+
+#Create lists of sub-sampled
+thisstudy = global[which(global$Study == "2014-2018 Surveillance"),]
+thisstudy[which(thisstudy$Division %in% c("Rajshahi", "Rangpur")),"Division"] = "Northern Bengal"
+thisstudy[which(thisstudy$Division %in% c("Khulna", "Barisal")),"Division"] = "Southern Bengal"
+subsamples = list()
+set.seed(1)
+
+for(j in 1:10){
+sample1= c()
+for(y in 2014:2018){
+  for(d in c("Dhaka", "Sylhet", "Chittagong", "Southern Bengal","Northern Bengal")){
+sample1 = c(sample1, sample(thisstudy[which(thisstudy$Year == y & thisstudy$Division == d),"ID"], adjusted[which(adjusted$Division == d & adjusted$Year == y),"Cut"]))  }}
+subsamples[[paste0("sample_", j)]] <- sample1
+}
+subsamples$sample_2
+
+
+for(j in 1:10){
+  sample1 = c()
+  for(y in c(2014:2018)){
+    n = min(table(global[which(global$Year == y),"Category"]))
+    for(i in unique(global$Category)){
+      sample1 = c(sample1, sample(which(global$Year == y & global$Category == i), n, replace = F))
+    } 
+  }
+  subsamples[[paste0("sample_", j)]] <- sample1
+}
+length(subsamples$sample_3)
+
+#Create lists
+for(j in 1:10){
+  BD2=subsamples[[j]][which(subsamples[[j]] %in% thisstudy[which(thisstudy$BAPS1 == "BD2"),"ID"])]
+  BD1=subsamples[[j]][which(subsamples[[j]] %in% thisstudy[which(thisstudy$BAPS1 == "BD1"),"ID"])]
+  cat(BD2, sep = "\n", file = paste0(c("BD2_sample",j, ".txt"), collapse = ""))
+  cat(BD1, sep = "\n", file = paste0(c("BD1_sample",j, ".txt"), collapse = ""))
+}
+
+#### Analyse output
+subsample = read.table("BD1_BD2_subsampling.txt", header = T)
+colnames(subsample)[which(colnames(subsample) == "node")] = "label"
+colnames(subsample)[which(colnames(subsample) == "node.y")] = "node"
+subsample[which(subsample$City %in% c("Rajshahi", "Rangpur")),"City"] = "Northern Bengal\n(Rajshahi/Rangpur)"
+subsample[which(subsample$City %in% c("Khulna", "Barisal")),"City"] = "Southern Bengal\n(Khulna/Barisal)"
+subsample$BAPS1 = gsub("_.*", "", subsample$Sample)
+subsample$SampleNumber = gsub(".*_sample", "", subsample$Sample)
+
+for(i in 1:nrow(subsample)){
+subsample[i,"Parent_City"] = subsample[which(subsample$node == subsample[i,"parent"] & subsample$Sample ==  subsample[i,"Sample"]),"City"]}
+
+trans = as.data.frame(table(subsample[which(subsample$City != subsample$Parent_City),c("Sample","City", "Parent_City")]))
+trans = trans[-which(trans$City == trans$Parent_City),]
+ggplot(trans[grep("BD1", trans$Sample),], aes(y = Parent_City, x = City, fill = Freq)) + facet_wrap(~Sample, ncol = 5) + geom_tile() + scale_fill_gradientn(colors = c(brewer.pal(9, "RdPu"), "white"))
+ggplot(trans[grep("BD2", trans$Sample),], aes(y = Parent_City, x = City, fill = Freq)) + facet_wrap(~Sample, ncol = 5) + geom_tile() + scale_fill_gradientn(colors = c(brewer.pal(9, "RdPu"), "white"))
+
+ggplot( as.data.frame(table(subsample[which(subsample$City != subsample$Parent_City),c("SampleNumber","Parent_City", "BAPS1")])), aes(x = Parent_City, y= Freq)) + geom_boxplot() + geom_jitter(width = 0.2) + facet_wrap(~BAPS1) + theme_bw() + labs(x = "Source", y = "Number of inter-regional transmission events") + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+
+#Origin of BD1
+subsample$Date = as.numeric(subsample$Date)
+subsample = subsample[order(subsample$Date),]
+bd1 = subsample[which(subsample$BAPS1 == "BD1"),]
+bd1 = bd1[which(!is.na(bd1$City)),]
+bd1[!duplicated(bd1$Sample),]
+
+sort(table(trans$Sample, paste(trans$Parent_City, trans$City)))
+ggplot(trans, aes(x = Sample))
+
+#### Bangladesh to India bias ####
+setwd("/Users/ab61/Documents/Data Analysis/Vibrio2023/treetime_samples")
+
+for(s in paste0("sample_", 0:9)){
+  list.files(pattern = s)
+  
+  tree1 = read.nexus(paste0(s,".nexus"))
+  tree2 = read.nexus(paste0(s, ".timetree.nexus" ))
+  
+  tree1 = as.data.frame(fortify(tree1))
+  tree2 = as.data.frame(fortify(tree2))
+  
+  traits = read.table(paste0(s, "_ancestral_traits.txt"))
+  table(traits$node %in% tree1$label)
+  
+  tree1 = merge(tree1, traits, by.x = "label", by.y = "node")
+  colnames(tree1)[10] = "Location"
+  
+  dates = read.table(paste0(s, ".dates.txt"))
+  
+  tree2 = merge(dates, tree2, by.x = "V1", by.y = "label")
+  
+  #Add dates to tree1 frame
+  for(i in 1:nrow(tree2)){
+    tree1[i,"Date"]
+    tree1[which(tree1$x == tree2[i,"x"] &  tree1$y == tree2[i,"y"]),"Date"] = tree2[i,"V3"]
+  }
+  
+  for(i in 1:nrow(tree1)){
+    tree1[i,"ParentLocation"] = tree1[which(tree1$node == tree1[i,"parent"] ),"Location"]
+  }
+  transmission = tree1[which(tree1$ParentLocation != tree1$Location),]
+  transmission$Sample = s
+  if(s == "sample_0"){transmission_all = transmission}else{transmission_all = rbind(transmission_all, transmission)}
+}
+ggplot(transmission_all, aes(x = as.numeric(Date), y = Sample, color = Sample)) + facet_wrap(~ParentLocation) + geom_point()
+sort(table(transmission_all$ParentLocation))
+
+transmission_all$Category = as.character(transmission_all$ParentLocation)
+transmission_all[which(!transmission_all$ParentLocation %in% c("India", "Bangladesh")),"Category"] = "Other"
+ggplot(transmission_all, aes(x = as.numeric(Date), y = Category, color = Sample)) + geom_point()
+
+ggplot(transmission_all, aes(x = as.numeric(Date), y = Category, color = Sample)) + geom_boxplot()
+#position="dodge2"
+
+ggplot(as.data.frame(table(transmission_all[which(transmission_all$Date > 2010),c("Category","Sample")])), aes(x = Category, y = Freq)) + geom_bar(stat = "identity") + facet_wrap(~Sample)
+ggplot(as.data.frame(table(transmission_all[which(transmission_all$Date < 2010),c("Category","Sample")])), aes(x = Category, y = Freq)) + geom_bar(stat = "identity") + facet_wrap(~Sample)
+
+transmission_all$Decade = floor(as.numeric(transmission_all$Date)/10)*10
+
+a = ggplot(as.data.frame(table(transmission_all[which(transmission_all$Date > 2010),c("Category","Sample")])), aes(x = Category, y = Freq)) + geom_boxplot() + ggtitle("Post-2010")
+b = ggplot(as.data.frame(table(transmission_all[which(transmission_all$Date < 2010),c("Category","Sample")])), aes(x = Category, y = Freq)) + geom_boxplot()+ ggtitle("Pre-2010")
+
+grid.arrange(b, a, ncol = 2)
+
+ggplot(as.data.frame(table(transmission_all[,c("Category","Decade", "Sample")])), aes(x = Category, y = Freq, fill = Category, color = Category)) + 
+  geom_boxplot(outlier.shape = NA, alpha = 0.5) + facet_wrap(~Decade) + 
+  geom_jitter(shape = 21, size = 2.5) + 
+  scale_fill_manual(values =  c(brewer.pal(9, "GnBu")[c(5,8)], "grey"  )) + 
+  scale_color_manual(values =  darken(c(brewer.pal(9, "GnBu")[c(5,8)], "grey"  ), 0.5)) + 
+  theme_bw() +
+  theme(panel.grid = element_blank()) +
+  labs(x = "Source Country", y ="Inferred transmission events") +
+  guides(fill = F, color = F)
+ggsave("Intercountry.svg", height = 4, width = 7)
+
+
+
+ggplot(transmission_all[which(transmission_all$Category != "Other"),], aes(x = as.numeric(Date),  fill = Category)) + geom_density(alpha = 0.5) + facet_wrap(~Sample)
+
+
+#### Sampling by region ####
+global$Category = "Rest of world"
+global[which(global$Country == "Bangladesh"),"Category"] = "Bangladesh"
+global[which(global$Country == "India"), "Category"] = "India"
+global[which(global$Country == "Nepal"), "Category"] = "Nepal"
+global[which(global$City %in% c("Dindigul")), "Category"] = "South India"
+global[which(global$Country == "India" & (global$Study %in% c("Singh et al. (in prep)", "Thakur et al. (in prep)"  ))),"Category"] = "North India"
+global[which(global$City %in% c("Kolkata", "Assam")), "Category"] = "East India"
+table(global$Category)
+global[which(global$City == "Delhi"),"Category"] = "North India"
+global[which(global$Category == "India"),c("City", "Study")]
+global[which(global$City %in% c("Yammuna Nagar", "Patiala", "Panchkula", "Morinda", "Mohali", "Hallomajra", "Derabassi", "Chandigarh", "Ambala")),"Category"] = "North India"
+global[which(global$Category %in% c("India", "South India")),"Category"] = "Rest of world"
+samples = as.data.frame(table(global[,c("Year", "Category")]))
+samples = samples[which(samples$Freq > 0),]
+samples$Category = factor(samples$Category, levels = rev(sort(unique(samples$Category))))
+ggplot(samples, aes(x = as.numeric(as.character(Year)), y = Category)) + geom_point(aes(size = Freq), alpha = 0.8) + theme_bw() + labs(x = "Year", y = "Region")
+
+ggplot(global, aes(x = Year)) + geom_histogram() + facet_wrap(~Category, ncol = 1) 
+    
+
+
+#### Diversity over time ####
+setwd("~/Documents/Data Analysis/Vibrio2023")
+pegas = read.csv("pi_pegas.csv")
+pegas = pegas[,3:ncol(pegas)]
+
+load(file = "export.Rdata")
+load(file = "Cholera.Rdata")
+
+byyear = pegas[grep("Bangladesh|India", pegas$Sample),]
+byyear$Country = gsub("[0-9].*", "", byyear$Sample)
+byyear$Year = gsub("Bangladesh|India", "", byyear$Sample)
+byyear$Year = as.numeric(gsub("[.]csv", "", byyear$Year))
+#Include N
+N = as.data.frame(table(global[which(global$Country %in% c("Bangladesh", "India") & global$Year >= 2010),c("Year", "Country")]))
+byyear = merge(byyear, N)
+
+ggplot(byyear, aes(x = Year, y = pi, color = Country)) + geom_line() + geom_point(aes(size = Freq))
+ggplot(byyear, aes(x = Year, y = D, color = Country)) + geom_line() + geom_point(aes(size = Freq))
+
+#By year with subsampling
+byyear = pegas[grep("Bangladesh|India", pegas$Sample),]
+byyear = byyear[grep("_[0-9][.]csv", byyear$Sample),]
+byyear$Year = gsub("Bangladesh|India", "", byyear$Sample)
+byyear$Year = as.numeric(gsub("_.*", "", byyear$Year))
+byyear$Country = gsub("2.*", "", byyear$Sample)
+byyear$Sampleno = gsub("[.]csv","",gsub(".*_", "", byyear$Sample))
+byyear = merge(byyear, N)
+a = ggplot(byyear[which(byyear$Freq >= 15),], aes(x = Year, y = pi)) +
+  geom_jitter(aes(color = Country, fill = Country), shape = 21, size = 2.5, height = 0, width = 0.1) + 
+  scale_color_manual(values = darken(c(brewer.pal(9, "GnBu")[c(5,8)]), 0.2)) + 
+  scale_fill_manual(values = c(brewer.pal(9, "GnBu")[c(5,8)]))+
+  guides(color = F, fill = F)+
+  ggnewscale::new_scale_color() +
+  scale_color_manual(values = c(brewer.pal(9, "GnBu")[c(5,8)]))+
+  geom_smooth(aes(color = Country, fill = Country), span = 0.1) + 
+  theme_bw() + geom_hline(yintercept = 0) + 
+  theme(panel.grid = element_blank()) +
+  labs(y = "Nucleotide diversity") 
+  
+b = ggplot(byyear[which(byyear$Freq >= 15),], aes(x = Year, y = D)) +
+  geom_jitter(aes(color = Country, fill = Country), shape = 21, size = 2.5, height = 0, width = 0.1) + 
+  scale_color_manual(values = darken(c(brewer.pal(9, "GnBu")[c(5,8)]), 0.2)) + 
+  scale_fill_manual(values = c(brewer.pal(9, "GnBu")[c(5,8)]))+
+  guides(color = F, fill = F)+
+  ggnewscale::new_scale_color() +
+  scale_color_manual(values = c(brewer.pal(9, "GnBu")[c(5,8)]))+
+  geom_smooth(aes(color = Country, fill = Country), span = 0.1) + 
+  theme_bw() + geom_hline(yintercept = 0) + 
+  theme(panel.grid = element_blank()) +
+  labs(y = "Tajima's D")
+
+pop = arrangeGrob(a,b, ncol = 1)
+ggsave(pop, file = "PopulationGenetics.svg", width = 6, height = 4)
+
+
+ggplot(byyear[which(byyear$Freq >= 15),], aes(x = Year, y = D)) + geom_point(aes(color = Country)) + geom_smooth(aes(color = Country), span = 0.1) + theme_bw() + ylim(-5,0)
+
+
+#By month
+bymonth = pegas[grep("BD", pegas$Sample),]
+bymonth = bymonth[-grep("-01_", bymonth$Sample),]
+bymonth$Date  = as.Date(gsub(".csv", "", gsub("BD_", "", bymonth$Sample)))
+bd = global[which(global$Study == "2014-2018 Surveillance"),]
+bd$YearMonth = floor_date(as.Date(bd$Date), unit= "months")
+
+N = as.data.frame(table(bd[,c("YearMonth", "Country")]))
+bymonth$Date
+bymonth = merge(bymonth, N, by.y = "YearMonth", by.x = "Date")
+
+ggplot(bymonth[which(bymonth$Freq >= 5),], aes(x = Date, y = pi)) + geom_line() + geom_smooth() + geom_point(aes(size = Freq))
+ggplot(bymonth[which(bymonth$Freq >= 5),], aes(x = Date, y = D)) + geom_line() + geom_smooth() + geom_point(aes(size = Freq))
+
+#Including sampling
+bymonth = pegas[grep("BD", pegas$Sample),]
+bymonth = bymonth[grep("-01_", bymonth$Sample),]
+bymonth$Date  = as.Date(gsub(".csv", "", gsub("BD_", "", bymonth$Sample)))
+bymonth$SampleNo = gsub(".*-01_", "", bymonth$Sample)
+N = as.data.frame(table(bd[,c("YearMonth", "Country")]))
+bymonth$Date
+bymonth = merge(bymonth, N, by.y = "YearMonth", by.x = "Date")
+bymonth = bymonth[which(bymonth$Freq >= 5),]
+bymonth$SampleNo = as.numeric(gsub("[.]csv", "", bymonth$SampleNo))+1
+bymonth$SampleNo = factor(bymonth$SampleNo, levels = 1:10)
+ggplot(bymonth, aes(x = Date, y = pi)) + geom_line(aes(color = SampleNo)) + geom_smooth(method = "loess", color = "black") + theme_bw() + labs(y = "Nucleotide diversity", color = "Subsample")
+
+range(bymonth$D)
+ggplot(bymonth, aes(x = Date, y = D)) + geom_line(aes(color = SampleNo)) + geom_smooth(method = "loess", color = "black") + theme_bw()#+ geom_vline(xintercept = as.Date("2015-02-01")) + geom_vline(xintercept = as.Date("2016-05-01")) + geom_vline(xintercept = as.Date("2017-02-01"))  + geom_vline(xintercept = as.Date("2017-11-01"))+ geom_vline(xintercept = as.Date("2018-02-01")) + geom_point()
+
+
+
+ggplot(bd[,c("YearMonth", "VSP_II")], aes(x = factor(YearMonth), fill = VSP_II)) + geom_bar(position = "fill") + theme(axis.text.x = element_text(angle = 90)) 
+bd$VC_0258.assembled
+ggplot(bd[,c("YearMonth", "VC_0258.assembled")], aes(x = factor(YearMonth), fill = VC_0258.assembled)) + geom_bar(position = "fill") + theme(axis.text.x = element_text(angle = 90)) 
+ggplot(bd[,c("YearMonth", "PLE")], aes(x = factor(YearMonth), fill = PLE)) + geom_bar(position = "fill") + theme(axis.text.x = element_text(angle = 90)) 
+ggplot(bd[,c("YearMonth", "SXT")], aes(x = factor(YearMonth), fill = SXT)) + geom_bar(position = "fill") + theme(axis.text.x = element_text(angle = 90))
+ggplot(bd[,c("YearMonth", "BAPS1")], aes(x = factor(YearMonth), fill = BAPS1)) + geom_bar(position = "fill") + theme(axis.text.x = element_text(angle = 90))
+
+table(bd[which(bd$YearMonth == "2015-02-01"),c("VSP_II")])
+
+
+table(global[which(global$Study == "2014-2018 Surveillance"), c("Date", "VSP_II")])
+
+#### SNP threshold ####
+setwd("/Users/ab61/Documents/Data Analysis/Vibrio2023")
+load(file = "Cholera.Rdata")
+
+snpdists <- read.delim("~/Downloads/snpdists.txt")
+rownames(snpdists) = snpdists$snp.dists.0.7.0
+snpdists = snpdists[,-1]
+colnames(snpdists) = rownames(snpdists)
+
+
+snpdists = as.matrix(snpdists)
+#All
+quantile(snpdists, c(0, 0.025, 0.25, 0.5, 0.75, 0.975, 1))
+#Within BD1
+quantile(snpdists[global[which(global$BAPS1 == "BD1"), "ID"], global[which(global$BAPS1 == "BD1"), "ID"]], c(0, 0.025, 0.25, 0.5, 0.75, 0.975, 1))
+#Within BD2
+quantile(snpdists[global[which(global$BAPS1 == "BD2"), "ID"], global[which(global$BAPS1 == "BD2"), "ID"]], c(0, 0.025, 0.25, 0.5, 0.75, 0.975, 1))
+#Between BD1 and BD2
+quantile(snpdists[global[which(global$BAPS1 == "BD1"), "ID"], global[which(global$BAPS1 == "BD2"), "ID"]], c(0, 0.025, 0.25, 0.5, 0.75, 0.975, 1))
+#Within sub-lineages
+sublineage_dist = data.frame(sublineage = unique(global[which(global$BAPS1 %in% c("BD1", "BD2")),"BAPS3"]), median = NA, max = NA)
+for(i in sublineage_dist$sublineage){
+  print(i)
+  sublineage_dist[which(sublineage_dist$sublineage == i),"median"] = median(snpdists[global[which(global$BAPS3 == i), "ID"], global[which(global$BAPS3 == i), "ID"]])
+  sublineage_dist[which(sublineage_dist$sublineage == i),"max"] = max(snpdists[global[which(global$BAPS3 == i), "ID"], global[which(global$BAPS3 == i), "ID"]])
+}
+
+ggplot(sublineage_dist, aes(y = max, x = 1)) + geom_boxplot()
+quantile(sublineage_dist$max)
+quantile(sublineage_dist$median)
+
+
+#Is it possible to make clusters based on SNP distance
+dist_matrix <- as.dist(snpdists)
+hc <- hclust(dist_matrix)  # single-linkage is common for outbreaks
+hc
+plot(hc)
+ggplot(data.frame(dist = as.vector(snpdists), y = 1), aes(x = dist)) + geom_density() + geom_vline(xintercept = 56)
+clusters <- cutree(hc, h = 20)
+
+clusters = as.data.frame(clusters)
+#head(sort(table(as.numeric(clusters)), decreasing = T), 40)
+clusters = merge(global, clusters, by.x = "ID", by.y = "row.names", all.x = T)
+clusters[which(clusters$clusters %in% names(which(table(clusters$clusters) == 1))),"clusters"] = "Singleton"
+hmap = clusters[,c("ID","BAPS1", "clusters")]
+rownames(hmap) = hmap$ID
+hmap = hmap[,-1]
+rownames(hmap) = gsub("#", "_", rownames(hmap))
+gheatmap(ggtree(global_tree$tree), hmap, color =NA) + guides(fill = F)
+sum = as.data.frame(table(clusters[,c("BAPS1", "clusters")]))
+tab = as.data.frame(table(clusters[which(clusters$Country %in% c("India", "Bangladesh") & clusters$BAPS1 %in% c("BD1", "BD2")),c("Year", "clusters", "BAPS1", "Country")]))
+tab$Year = as.numeric(as.character(tab$Year))
+ggplot(tab, aes(x = Year, fill = clusters, y = Freq)) + geom_area(position = "fill", color = "black") + guides(fill = F) + facet_grid(Country~BAPS1) 
+
+global_tree$data$label
+clusters$label = gsub("#", "_", clusters$ID)
+clusters$label %in% global_tree$ID
+checkphylo = merge(global_tree$data, clusters, by = "label")
+checkphylo = checkphylo[order(checkphylo$y),]
+checkphylo$clusters = factor(checkphylo$clusters, levels = unique(checkphylo$clusters))
+ggplot(checkphylo, aes(x = y, y = clusters)) + geom_tile(aes(fill = clusters)) + guides(fill = F)
+
+#For each tip, what is the SNP distance from it's nearest neighbour
+colnames(snpdists) = gsub("#", "_", colnames(snpdists))
+rownames(snpdists) = gsub("#", "_", rownames(snpdists))
+for(i in 1:(nrow(checkphylo)-1)){
+  print(i)
+  checkphylo[i,"SNPdist"] =  snpdists[checkphylo[i,"label"], checkphylo[i+1,"label"]]
+}
+
+
+#Double check SNP distance within these clusters
+sublineage_dist = data.frame(sublineage = unique(clusters[which(clusters$BAPS1 %in% c("BD1", "BD2")),"clusters"]), median = NA, max = NA)
+for(i in sublineage_dist$sublineage){
+  print(i)
+  sublineage_dist[which(sublineage_dist$sublineage == i),"median"] = median(snpdists[clusters[which(clusters$clusters == i), "label"], clusters[which(clusters$clusters == i), "label"]])
+  sublineage_dist[which(sublineage_dist$sublineage == i),"max"] = max(snpdists[clusters[which(clusters$clusters == i), "label"], clusters[which(clusters$clusters == i), "label"]])
+}
+
+
+table(unique(clusters[which(clusters$BAPS1 == "BD2" & clusters$Country == "Bangladesh"),"clusters"]) %in% unique(clusters[which(clusters$BAPS1 == "BD2" & clusters$Country != "Bangladesh"),"clusters"]))
+
+table(clusters[which(clusters$BAPS1 == "BD2" & clusters$PLE == "None" & clusters$Country == "Bangladesh"),"clusters"])
+
+
+ggplot(as.data.frame(table(unique(clusters[which(clusters$Country %in% c("India", "Bangladesh")),c("Country", "clusters", "Year")])[,c("Country", "Year")])), aes(x = as.numeric(as.character(Year)), y = Freq)) + geom_line(aes(color = Country))  + theme_bw() + labs(x = "Year", y = "Clusters (SNP distance < 20)")
+
+
+
+table(unique(clusters[which(clusters$Country %in% c("India", "Bangladesh")),c("Country", "clusters")])$Country)
+
+#How long take to spread around the country?
+clusters = clusters[order(clusters$Date),]
+spread = clusters[which(clusters$Study == "2014-2018 Surveillance" ),c("Date", "clusters", "Division", "BAPS1")]
+spread$clusters = paste(spread$BAPS1, spread$clusters, sep = ".")
+spread = spread[which(!is.na(as.Date(spread$Date))),]
+spread$ID = paste(spread$Division, spread$clusters)
+spread = spread[which(!duplicated(spread$ID)),]
+spread$Order = NA
+for(i in unique(spread$clusters)){
+  spread[which(spread$clusters == i),"Lag"] = as.Date(spread[which(spread$clusters == i),"Date"])-min(as.Date(spread[which(spread$clusters == i),"Date"]))
+  spread[which(spread$clusters == i),"Order"] = 1:nrow(spread[which(spread$clusters == i),] )
+}
+ggplot(spread, aes(x = Order,y = Lag/30.417, color = Division)) + geom_line(aes(group = clusters), color = "grey") + geom_point() + geom_smooth(method = "lm", color = "black")
+spread$Months = as.numeric(spread$Lag/30.417)
+model = lm(Months~Order, spread)
+spread$Predicted = predict(model, spread)
+spread[,c("fit", "lwr", "upr")] = predict.lm(model, spread, interval = "confidence")
+spread[which(spread$Order == 8),]
+length(unique(clusters[which(clusters$Study == "2014-2018 Surveillance"),"clusters"]))
+
+match = as.data.frame(table(clusters[,c("BAPS3", "clusters")]))
+match = match[which(match$Freq > 0),]              
+
+#Create new names for these subclusters
+clusters = clusters[order(clusters$Year),]
+clusters = clusters[order(clusters$Year, clusters$Month, clusters$Day),]
+clusters$clustersBAPS  = NA
+for(i in unique(clusters$clusters)){
+  clusters[which(clusters$clusters == i),"clustersBAPS"]  = names(sort(table(clusters[which(clusters$clusters == i),"BAPS1"] ), decreasing = T))[1]}
+clusters$NewName = NA
+for(baps in unique(clusters$clustersBAPS)){
+  clusters[which(clusters$clustersBAPS == baps),"NewName"]  = paste(baps, as.numeric(factor(clusters[which(clusters$clustersBAPS == baps),"clusters"])), sep = ".")
+}
+
+ggplot(as.data.frame(table(clusters[which(clusters$Country == "Bangladesh" & clusters$Year > 2013),c("Year", "NewName", "PLE")])), aes(x = Year, fill = paste(NewName, PLE), y = Freq)) + geom_bar(color = "black", stat = "identity") + geom_text(size = 3, position = position_stack(vjust = 0.5), aes(label = paste(NewName, PLE)))
+
+
+
+ggplot(as.data.frame(table(clusters[which(clusters$Country == "India" & clusters$Year > 2013),c("Year", "NewName")])), aes(x = Year, fill = NewName, y = Freq)) + geom_bar(color = "black", stat = "identity") + geom_text(size = 3, position = position_stack(vjust = 0.5), aes(label = NewName))
+
+unique(clusters[which(clusters$PLE == "PLE11"),"clusters"])
+table(clusters[which(clusters$clusters %in% c("445", "453")), c("clusters", "PLE")])
+
+ple1 = table(clusters[which(clusters$clustersBAPS == "BD2" & clusters$Year %in% 2014:2017 & clusters$Country == "Bangladesh"), c("NewName", "PLE")])
+ple1[,c("None")]/(ple1[,c("None")]+ple1[,c("PLE1")])

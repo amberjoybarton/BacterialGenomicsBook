@@ -1,0 +1,29 @@
+SPA_STY <- as.data.frame(read_excel("~/Documents/SPA_STY.xls"))
+spa  <- as.data.frame(read_excel("~/Documents/SPA_Antigens.xlsx"))
+
+#spa$`SPA locusa` = gsub("t", "STY", spa$`SPA locusa`)
+spa$SPA = NA
+for(i in spa$`SPA locusa`[grep("STY", spa$`SPA locusa`)]){
+if(length(SPA_STY[which(SPA_STY$`Typhi CT18` == i),"Number"]) == 1){
+  spa[which(spa$`SPA locusa` == i),"SPA"] = SPA_STY[which(SPA_STY$`Typhi CT18` == i),"Number"] 
+  spa[which(spa$`SPA locusa` == i),"Description2"]  = SPA_STY[which(SPA_STY$`Typhi CT18` == i),"Gene...5"] 
+}
+print(SPA_STY[which(SPA_STY$`Typhi CT18` == i),"Number"] ) 
+}
+spa[which(spa$`SPA locusa` == "STY0796"), "SPA"] = "SPA1993"
+spa[grep("SPA", spa$`SPA locusa`),"SPA"] = spa[grep("SPA", spa$`SPA locusa`),"SPA locusa"]
+sub = SPA_STY[which(SPA_STY$Number %in% spa$SPA),c("Number","ORF amino acid")]
+sub$Number = paste0(">", sub$Number)
+sub$Paste  = paste(sub$Number, sub$`ORF amino acid`, sep = "\n")
+cat(sub$Paste, sep = "\n")
+prediction_results <- read.delim("~/Downloads/prediction_results.txt", header=FALSE, comment.char="#")
+intracellular = prediction_results[which(prediction_results$V2 == "OTHER"),"V1"]
+SPA_STY[which(SPA_STY$Number %in% intracellular & SPA_STY$`PSORT-B` == "-"),"Number"]
+
+cat(sub[which(sub$Number %in% paste0(">", intracellular)),"Paste"], sep = "\n")
+intracellular = intracellular[which(!intracellular %in% c("SPA0911", "SPA1306", "SPA1674"))]
+
+SPA_STY[which(SPA_STY$Number %in% intracellular),]
+SPA_STY[which(SPA_STY$Number %in% spa$SPA),]
+
+cat(sub[which(sub$Number %in% paste0(">",  spa$SPA)),"Paste"], sep = "\n")

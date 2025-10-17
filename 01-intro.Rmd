@@ -1,0 +1,64 @@
+# Publicly available datasets
+
+## Downloading fastq files from a published study
+
+For sequencing papers, often a Study Accession (e.g. PRJEB8764) will be provided in the methods, and sample or run accessions (e.g. ERR1880809) in the supplementary documents. One of the easiest ways of downloading fastq files is to visit the [ENA website](https://www.ebi.ac.uk/ena/browser/home), type in [an accession](https://www.ebi.ac.uk/ena/browser/view/PRJEB8764), and click "download". If you click "download all", you will be given a script you can run in the command line to download the files at scale.
+
+## Downloading fastq files from a systematic search or multi-study collection
+
+Go on to [NCBI SRA](https://www.ncbi.nlm.nih.gov/sra) and type in your search. For example, if I wanted to find Shigella (taxonomic ID 624) DNA whole-genome sequences from India, I might type in:
+
+**txid624[Organism] AND "WGS"[Strategy] AND "biomol dna"[Properties] AND "India"[Country]**
+
+You can then click "Send results to Run selector", which will give you a neatly formatted table with a list of the run accessions and metadata. Once you have a list of run accessions, you can download the fastq files using [SRA toolkit](https://hpc.nih.gov/apps/sratoolkit.html).
+
+```{bash, eval = FALSE}
+#Downloads runs in SRA format
+prefetch --option-file SraAccList.txt
+#Loop through the downloaded files to convert to fastq
+for i in *RR*
+do
+fasterq-dump --split-files $i
+done
+#Compress to get fastq.gz files
+gzip *fastq
+```
+
+Alternatively, the following R function, which uses the readR and httr packages, can be used to retrieve the url of a fastq.gz file when given a run accession. 
+
+```{r httr readR}
+library(httr)
+library(readr)
+get_fastq_urls <- function(accession) {
+  res <- GET("https://www.ebi.ac.uk/ena/portal/api/filereport",
+             query = list(accession = accession, result = "read_run",
+                          fields = "fastq_ftp", format = "tsv"))
+  df <- read_tsv(content(res, "text", encoding = "UTF-8"), show_col_types = FALSE)
+  if (nrow(df) == 0 || !"fastq_ftp" %in% names(df) || is.na(df$fastq_ftp) || df$fastq_ftp == "")
+    return(warning(sprintf("No FASTQ found for %s", accession)))
+  paste0("https://", unlist(strsplit(as.character(df$fastq_ftp), ";")))}
+
+get_fastq_urls("ERR1880809")
+
+```
+
+You can then download them using the wget function in the command line.
+
+```{bash, eval = FALSE}
+wget https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR188/009/ERR1880809/ERR1880809_1.fastq.gz
+wget https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR188/009/ERR1880809/ERR1880809_2.fastq.gz
+```
+
+## Downloading assemblies from online databases ##
+
+[Enterobase]("https://enterobase.warwick.ac.uk/") and [Pathogenwatch]("https://pathogen.watch/") are both good resources for downloading ready-made assemblies for certain pathogens, particularly enteric pathogens.
+
+For a more comprehensive search, you could visit [NCBI Genome](https://www.ncbi.nlm.nih.gov/datasets/genome/). Currently, if I type in "Vibrio cholerae", NCBI genome will return 14,025 genomes. If I click *filter* I can then filter by assembly level, for example "chromosome" (516 genomes) or "complete" (474 genomes). These genomes can be downloaded using [ncbi-datasets-cli](https://www.ncbi.nlm.nih.gov/datasets/docs/v2/how-tos/genomes/download-genome/).
+
+```{bash, eval = FALSE}
+#Download all complete Vibrio cholerae assemblies
+datasets download genome taxon 666 --assembly-level complete --filename Cholera.zip --include genome
+#Download a particular assembly for which you have an accession
+datasets download genome accession GCA_003574155.1 --filename V060002.zip --include genome
+```
+

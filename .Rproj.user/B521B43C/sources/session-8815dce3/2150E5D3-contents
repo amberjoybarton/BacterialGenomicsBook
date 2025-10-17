@@ -1,0 +1,107 @@
+panel_members<- read_excel("~/Downloads/panel-members-excel.xlsx")
+panel = panel_members[which(panel_members$funding_scheme  == "StG" & panel_members$review_panel %in% c("LS2", "LS6")),]
+
+
+
+library(rvest)
+library(httr)
+library(urltools)
+
+query = "Naama Barkai"
+
+# Function to Google search and return first result text
+google_first_result <- function(query) {
+  # Encode query for URL
+  query_encoded <- url_encode(query)
+  
+  # Construct Google search URL
+  url <- paste0("https://www.google.com/search?q=", query_encoded)
+  
+  # Fetch page (set a user-agent so Google doesn’t block the request)
+  page <- httr::GET(url, user_agent("Mozilla/5.0"))
+  
+  # Parse HTML
+  html <- read_html(page)
+  
+  # CSS selector for search results (Google changes this often!)
+  results <- html %>% html_elements("h3")
+  
+  # Get first result text
+  if (length(results) > 0) {
+    return(results[1] %>% html_text())
+  } else {
+    return(NA)
+  }
+}
+
+# Example usage
+google_first_result("Salmonella Paratyphi A phage")
+
+
+
+comparison <- read.delim("~/Downloads/comparison", header=FALSE)
+colnames(comparison) = c("qseqid","sseqid","pident","length","mismatch","gapopen","qstart","qend","sstart","send","evalue","bitscore")
+library(ggplot2)
+comparison = comparison[order(comparison$length, decreasing = T),]
+comparison = comparison[which(!duplicated(comparison$qseqid)),]
+comparison = comparison[order(comparison$sstart),]
+comparison$qseqid = factor(comparison$qseqid, levels = unique(comparison$qseqid))
+comparison$cumulative = 0
+
+
+genes =  read.delim("~/Downloads/ED199 results/defense-finder-genes-3ce3e2281e4506fb0846e70c2bec4358-lfgx6dhr.tsv")
+genes$replicon = factor(genes$replicon, levels = levels(comparison$qseqid))
+genes = genes[order(genes$replicon),]
+#What would position be in original?
+
+i = 1
+
+for(i in 1:nrow(genes)){
+if(comparison[which(comparison$qseqid == genes[i,"replicon"]),"sstart"]  < comparison[which(comparison$qseqid == genes[i,"replicon"]),"send"] ){
+genes[i,"start"] = genes[i,"hit_begin_match"] + comparison[which(comparison$qseqid == genes[i,"replicon"]),"sstart"] 
+genes[i,"end"] = genes[i,"hit_end_match"] + comparison[which(comparison$qseqid == genes[i,"replicon"]),"sstart"] 
+}else{
+  genes[i,"start"] = comparison[which(comparison$qseqid == genes[i,"replicon"]),"send"]-genes[i,"hit_end_match"]
+  genes[i,"end"] =comparison[which(comparison$qseqid == genes[i,"replicon"]),"send"]-genes[i,"hit_begin_match"]
+}}
+
+library(ggrepel)
+
+genes$Label = NA
+genes[which(!duplicated(genes$subtype)),"Label"] = genes[which(!duplicated(genes$subtype)),"type"] 
+
+
+
+
+library(rtracklayer)
+gff = as.data.frame(readGFF("/Users/ab61/Downloads/paratyphiaref/ncbi_dataset/data/GCA_000011885.1/genomic.gff"))
+gff$ID
+prophages = data.frame(name = c("SPA-1", "SPA-2", "SPA-3-P2"), start = c(min(gff[which(gff$ID %in% paste0("gene-SPA", 2385:2432)),c("start")]), min(gff[which(gff$ID %in% paste0("gene-SPA", 2554:2600 )),c("start")]), min(gff[which(gff$ID %in% paste0("gene-SPA", 2601:2625)),"start"])),end = c(max(gff[which(gff$ID %in% paste0("gene-SPA", 2385:2432)),c("end")]), max(gff[which(gff$ID %in% paste0("gene-SPA", 2554:2600 )),c("end")]), max(gff[which(gff$ID %in% paste0("gene-SPA", 2601:2625)),"end"])))
+
+
+ggplot(genes, aes(xmin = start, xmax = end, ymin = -1, ymax = 1))+ geom_text(aes(label = Label, x = start, y = 4)) + geom_rect(data =prophages, linewidth = 1, color = "red", alpha = 0.5) + geom_rect(linewidth = 2, color = "black") + coord_polar() + ylim(-4,4) + geom_hline(yintercept = 0) + theme_void() 
+
+
+head(ref_genes)
+ref_genes$start = ref_genes$hit_begin_match
+ref_genes$end= ref_genes$hit_end_match
+ref_genes$Label = NA
+ref_genes[which(!duplicated(ref_genes$type)),"subtype"] = ref_genes[which(!duplicated(ref_genes$type)),"subtype"]
+ggplot(ref_genes, aes(xmin = start, xmax = end, ymin = -1, ymax = 1))+ geom_text(aes(label = Label, x = start, y = 4)) + geom_rect(linewidth = 2, color = "black")+ geom_rect(data =prophages, linewidth = 1, color = "red", alpha = 0.5)  + coord_polar() + ylim(-4,4) + geom_hline(yintercept = 0) + theme_void() 
+
+#Has RloC and SDIC3 as extra
+
+
+#, , aes(xmin = min xmax= max, ymin = -1, ymax = 1))
+
+#, encoded in SPA2601 to SPA
+
+
+
+
+#A lambdoid prophage of 41 kb, designated SPA-1, is encoded in the 47 genes between SPA2385 (gtrC) and SPA2431 (int), inserted next to SPA2432 (thrW for tRNAThr)
+
+
+
+unique(genes$replicon)
+unique(comparison$qseqid)

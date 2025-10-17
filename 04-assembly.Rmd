@@ -1,0 +1,60 @@
+# Genome assembly
+
+## Short-read {#spades}
+
+Illumina sequencing data can be assembled using [SPAdes](https://github.com/ablab/spades). 
+
+```{bash, eval = FALSE}
+#Paired end reads
+spades.py -1 ERR11850183_1.fastq.gz -2 ERR11850183_2.fastq.gz -o ERR11850183_assembly
+#Single end reads
+spades.py -s ERR11850183.fastq.gz -o ERR11850183_assembly
+#Metagenomic assembly (paired reads only)
+metaspades.py -1 ERR11850183_1.fastq.gz -2 ERR11850183_2.fastq.gz -o ERR11850183_assembly
+```
+
+The output *scaffolds.fasta* can then be used for further analyses. I would recommend moving and renaming this file.
+
+```{bash, eval = FALSE}
+mv ERR11850183_assembly/scaffolds.fasta ERR11850183.fasta
+```
+
+## Hybrid and long-read
+
+[Unicycler](https://github.com/rrwick/Unicycler?tab=readme-ov-file) can be used for long-read and hybrid assemblies.
+
+```{bash, eval = FALSE}
+#Hybrid assembly
+unicycler -1 short_reads_1.fastq.gz -2 short_reads_2.fastq.gz -l long_reads.fastq.gz -o output_dir
+```
+
+## Quality control
+
+[CheckM2](https://github.com/chklovski/CheckM2) can be used to estimate the completeness and contamination of an assembly. By default, CheckM2 assumes that assemblies end with the extension "fasta".
+
+```{bash, eval = FALSE}
+checkm2 predict --input folder_containing_assemblies --output-directory output_folder
+```
+
+[QUAST](https://github.com/ablab/quast), an alternative tool, can also be used for assembly quality control using a reference genome for comparison.
+
+```{bash, eval = FALSE}
+reference=/path/to/reference/genome
+#Assuming we are in a working directory containing assemblies with the file extension "fasta"
+quast.py *fasta -R $reference
+```
+
+## Annotation {#prokka}
+
+[Prokka](https://github.com/tseemann/prokka) is a fast method of genome annotation that is compatible with downstream pangenome analyses using panaroo.
+
+```{bash, eval = FALSE}
+prokka genome.fasta -o output_folder_name
+```
+
+You will then get a folder *output_folder_name* containing a number of files, including a gff file. I would recommend moving and renaming this file.
+
+```{bash, eval = FALSE}
+prokka ERR11850183.fasta -o ERR11850183_annotation
+mv ERR11850183_annotation/*gff ERR11850183.gff
+```

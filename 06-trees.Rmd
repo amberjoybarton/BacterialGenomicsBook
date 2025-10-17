@@ -1,0 +1,105 @@
+# Building trees
+
+## FastTree
+
+Once you have created your [SNP alignment](#snpalignment) you can create a tree. [FastTree] is a good option for creating a approximately-maximum-likelihood phylogenetic tree quickly.
+
+```{bash, eval = FALSE}
+FastTree -gtr -nt snps.aln > fast.tree
+
+```
+
+## IQ-TREE
+
+[IQ-TREE](https://iqtree.github.io/) takes longer and uses more memory, but creates a maximum-likelihood phylogenetic tree. Another advantage of IQ-tree is you can input the number of constant sites (see [SNP alignment](#snpalignment)).
+
+```{bash, eval = FALSE}
+#If you have the file "constant" from the SNP alignment section, you can assign it to a variable and input it into IQ-tree
+CONSTANTS=$(cat constant)
+#Run IQ-tree- here using a HKY+F+I model
+iqtree -s snps.aln -m HKY+F+I -fconst $CONSTANTS
+
+```
+
+Note that IQ-TREE will change all "#" in file names to "_", and will give a tree with the extenstion "treefile".
+
+# Rooting trees
+
+While an unrooted tree shows relationships between samples, it does not indicate the [directionality of evolutionary change](https://pmc.ncbi.nlm.nih.gov/articles/PMC7149615/). There are several methods of rooting trees.
+
+## Outgroup
+
+Include a sample that is more evolutionarily divergent from the rest of the samples- e.g. if you are focusing on one sub-species, include an out-group that belongs to the same species, but different sub-species.
+
+## Midpoint
+
+Midpoint rooting places the root half-way between the longest tips. This can be performed using the ape and phytools packages in R.
+
+```{r, eval = FALSE}
+library(ape)
+library(phytools)
+tree = read.tree("fast.tree")
+tree = midpoint.root(tree)
+```
+
+## Molecular clock
+
+This method finds the root most consistent with the sampling dates of the sequences. This is the method used by [BEAST](https://beast.community/) and [BEAST2](https://www.beast2.org/). However here we demonstrate two quicker methods of generating a time-scaled phylogeny.
+
+### TreeTime
+
+[Treetime](https://treetime.readthedocs.io/en/latest/tutorials.html) is a command line tool that can also be used to estimate a time-scaled phylogeny. In this case you will need your tree, your alignment, and your metadata in csv format.
+
+```{bash, eval = F }
+treetime --tree fast.tree --dates metadata.csv --outdir treetime_results --date-column date --name-column ID --aln snps.aln
+```
+
+
+### BactDating
+
+The R package [BactDating](https://github.com/xavierdidelot/BactDating) can also reroot a tree.
+
+
+```{r, eval = FALSE}
+library(ape)
+library(BactDating)
+tree = read.tree("fast.tree")
+```
+
+```{r, echo = FALSE}
+library(ape)
+library(BactDating)
+tree=simcoaltree(1990:2010)
+tree$tip.label = paste("sample", tree$tip.label, sep = "_")
+tree=simobsphy(tree)
+plot(tree)
+```
+
+You will need a data frame containing the dates. You can use the lubridate package to convert dates in YYYY-MM-DD format to decimal dates.
+
+```{r, eval = FALSE}
+library(lubridate)
+metadata$decimaldate = decimal_date(df$date)
+```
+
+```{r, echo = F }
+library(ape)
+library(BactDating)
+library(lubridate)
+metadata = data.frame(ID = tree$tip.label, date = as.Date(paste0(1990:2010, "-01-01")))
+metadata$decimaldate = decimal_date(metadata$date)
+metadata$Group1 = sample(c("A", "B", "C"), nrow(metadata), replace = T)
+metadata$Group2 = sample(c("D", "E", "F"), nrow(metadata), replace = T)
+kable(head(metadata))
+```
+
+```{r }
+dates = metadata$decimaldate 
+names(dates) = metadata$ID
+dates
+roottotip(tree,dates)
+results = bactdate(tree,dates)
+rooted_tree = results$tree
+```
+
+

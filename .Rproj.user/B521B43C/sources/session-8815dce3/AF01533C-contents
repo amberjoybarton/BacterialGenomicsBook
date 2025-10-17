@@ -1,0 +1,2006 @@
+#### Set up ####
+rm(list=ls())
+#lapply(paste('package:',names(sessionInfo()$otherPkgs),sep=""),detach,character.only=TRUE,unload=TRUE)
+setwd("/Users/ab61/Documents/Data Analysis/Vibrio2023")
+load(file = "Cholera.Rdata")
+library(ape)
+library(ggtree)
+library(ggplot2)
+library(plotly)
+library(ggridges)
+library(grid)
+library(gridExtra) 
+library(ggstream)
+library(plyr)
+library(dplyr)
+library(RColorBrewer)
+library(sf)
+library(phytools)
+no_na = function(x){x[which(!is.na(x))]}
+#library(ggimage)
+library(reshape2)
+# library(scatterpie)
+# library(shadowtext)
+# library(gggenes)
+# library(ggnewscale)
+# library("rnaturalearth")
+# library("rnaturalearthdata")
+
+
+#### Section 1- Bangladesh dynamics ####
+#### 7PET tree ####
+#Tree 1
+#ggplotly(ggtree(global$tree))
+
+rownames(global_tree$data) = global_tree$data$label
+global_tree$data$Region = "Other"
+global_tree$data[which(global_tree$data$Country == "India"),"Region"] = "India"
+global_tree$data[which(global_tree$data$Country == "Bangladesh"),"Region"] = "Bangladesh"
+
+#Clean heatmap so not too many categories
+global$ICP1 = "None"
+global[which(global$Percent_ICP1 > 0.1),"ICP1"] = "ICP1"
+global[which(global$cas1.assembled == "yes"),"ICP1"] = "ICP1: CRISPR+"
+global[which(global$odn.assembled == "yes"),"ICP1"] = "ICP1: odn+"
+
+hmap = global[,c("ID","BAPS1","BAPS3","ctxB_type","PLE","Superintegron","SXT","VSP_II", "Plasmid", "KappaPhage","ICP1","VC_0258.assembled","VC_0841.assembled","VC_1451.assembled","VC_A0219.assembled")]
+rownames(hmap) = gsub("#", "_", hmap$ID)
+hmap = hmap[,-1]
+hmap[which(hmap$PLE %in% paste0("PLE", 1:9)),"PLE"] = paste(" ", hmap[which(hmap$PLE %in% paste0("PLE", 1:9)),"PLE"])
+
+hmap[which(!hmap$Superintegron %in% names(which(table(hmap$Superintegron)> 100))),"Superintegron"] = "Other"
+hmap$Superintegron = gsub("WT", "Wild-type", hmap$Superintegron)
+
+hmap[which(hmap$VSP_II %in% names(which(table(hmap$VSP_II) < 100))),"VSP_II"] = "Other"
+
+colnames(hmap)[1:3] = c("Lineage","Sublineage","ctxB")
+colnames(hmap) = gsub(".assembled", "", colnames(hmap))
+
+colnames(hmap)[9] = "K139"
+
+for(i in c("Lineage","Sublineage","ctxB","PLE","Superintegron","SXT", "VSP_II", "Plasmid", "K139")){
+  hmap[,i][which(!is.na(hmap[,i]))]   =  paste0(i, ": ", hmap[,i][which(!is.na(hmap[,i]))])}
+
+for(i in c("VC_0258","VC_0841","VC_1451","VC_A0219")){
+  hmap[,i][which(hmap[,i] %in% c("partial", "disrupted", "fragmented"))] = c("partial/disrupted/fragmented")
+  hmap[,i][which(!is.na(hmap[,i]))]   =  paste0("Gene: ", hmap[,i][which(!is.na(hmap[,i]))])}
+
+for(i in 1:ncol(hmap)){
+  hmap[,i][grep("no|None", hmap[,i])] = "None"}
+hmapbackup = hmap
+
+#Add pre-existing lineages
+global$Sublineage.major.regrouped = gsub("/.*", "", global$Sublineage.major.regrouped)
+global[which(global$Sublineage.major.regrouped == "sporadic/local outbreak"),"Sublineage.major.regrouped"] = NA
+
+recent = max(as.Date(global_tree$data$date), na.rm = T)
+
+global_tree_clean$data$Region = "Other"
+global_tree_clean$data[which(global_tree_clean$data$Country %in% c("Bangladesh", "India")),"Region"] = global_tree_clean$data[which(global_tree_clean$data$Country %in% c("Bangladesh", "India")),"Country"]
+
+no_label = ggtree(global_tree_clean$tree, aes(color = Region), mrsd=recent) %<+% global_tree_clean$data + scale_color_manual(values = c(brewer.pal(9, "GnBu")[c(5,8)], "grey")) + theme(legend.position = "left") + theme_tree2()
+t_label = no_label
+
+#T1
+i = "T1"
+ids = global[which(global$Sublineage.major.regrouped == i),"ID"]  
+ids = global_tree_clean$data[which(global_tree_clean$data$label %in% ids),c("label","y")][,"label"][1:2]
+t_label = t_label + geom_cladelab(data = global_tree_clean$data, node =getMRCA(global_tree_clean$tree, ids), label= i)
+#t_label = t_label + geom_cladelab(data = global_tree_clean$data, node =getMRCA(global_tree_clean$tree, ids), label= i)
+
+
+for(i in c("T4","T5","T7","LAT1","LAT2","O139","T6","T8","T9","T10","T11","T12","LAT3","T13")){
+ids = global[which(global$Sublineage.major.regrouped == i),"ID"]  
+ids = gsub("#", "_", ids)
+ids = ids[which(ids %in% global_tree_clean$data$label  )]
+
+meta = global_tree_clean$data[which( global_tree_clean$data$label %in% ids),]
+meta = meta[order(meta$y),]
+
+if(length(ids) > 1){
+mrca = getMRCA(global_tree_clean$tree, ids)
+t_label = t_label + geom_cladelab(data = global_tree_clean$data, node = mrca, label= i)}}
+t_label
+
+
+lineage_col = c(brewer.pal(9, "RdPu")[5], brewer.pal(9, "GnBu")[5], brewer.pal(9, "Greens")[5],brewer.pal(9, "Blues")[5],brewer.pal(9, "YlOrRd")[5], brewer.pal(9, "Purples")[5], brewer.pal(9, "PuBuGn")[5])
+
+colnames(hmap) = gsub("_", "", colnames(hmap))
+
+
+#getMRCA(global_tree_clean$tree, ids)
+colors = colors[order(colors$BAPS3), ]
+
+
+
+global_tree_figure  = gheatmap(no_label + ggtree::vexpand(.2, -1), hmap, color = NA, colnames_angle = 90, colnames_offset_y = -450,   font.size = 4, width = 0.5, offset = 10) + scale_fill_manual(
+  values = c(brewer.pal(7, "Set1")[c(1:3,5:7)], #ctxB
+             c("grey95", "grey85", brewer.pal(8, "Dark2")[1]),#Genes
+            brewer.pal(3, "RdPu"),
+             brewer.pal(8, "Dark2")[1],
+             lineage_col,#Lineages
+             "white",
+             brewer.pal(3, "Set2")[1:2],
+             brewer.pal(10, "Spectral")[c(1:2,4,6:10)], #PLE
+            colors[which(colors$BAPS3 %in% global_tree_clean$data$BAPS3),"col"],
+
+             brewer.pal(5, "Purples"),
+             brewer.pal(6, "Set2"),
+             c("grey", colorRampPalette(brewer.pal(9, "GnBu"))(9)),
+             brewer.pal(9, "Set3"))
+
+) 
+
+global_tree_figure + theme(legend.position = "none")
+ggsave("Global.tree_new.png", height = 10, width = 15)
+
+gheatmap(t_label + ggtree::vexpand(.2, -1), hmap, color = NA, colnames_angle = 90, colnames_offset_y = -450,   font.size = 4, width = 0.5, offset = 100) + scale_fill_manual(
+  values = c(brewer.pal(6, "Set1"), #ctxB
+             c("grey95", "grey85", brewer.pal(8, "Dark2")[1]),#Genes
+             brewer.pal(3, "RdPu"),
+             brewer.pal(8, "Dark2")[1],
+             lineage_col,#Lineages
+             "white",
+             brewer.pal(3, "Set2")[1:2],
+             brewer.pal(10, "Spectral")[c(1:2,4,6:10)], #PLE
+             colors[which(colors$BAPS3 %in% global_tree_clean$data$BAPS3),"col"],
+             
+             brewer.pal(5, "Purples"),
+             brewer.pal(6, "Set2"),
+             c("grey", colorRampPalette(brewer.pal(9, "GnBu"))(9)),
+             brewer.pal(9, "Set3"))
+  
+) + theme(legend.position = "none")
+ggsave("Global.tree_new_label.png", height = 10, width = 15)
+
+
+library(ggplot2)
+ggsave(global_tree_figure + guides(fill = F), "Global.tree.new.svg", height = 10, width = 15)
+
+leg = cowplot::get_legend(global_tree_figure)
+grid.newpage()
+grid.draw(leg)
+#ggsave("legend.svg", plot = grid.arrange(leg), width=10, height=4)
+
+
+#Branches by sub-lineage
+
+global_tree_clean$data$BAPS3_color = "Other"
+global_tree_clean$data[which(global_tree_clean$data$BAPS1 %in% c("BD1", "BD2")),"BAPS3_color"] = global_tree_clean$data[which(global_tree_clean$data$BAPS1 %in% c("BD1", "BD2")),"BAPS3"]
+
+#Sub-lineage
+global_tree_clean$data$BAPS3_color = gsub("BD1", "sBD1", global_tree_clean$data$BAPS3_color)
+colors$BAPS3 = gsub("BD1", "sBD1", colors$BAPS3)
+colors = colors[order(colors$BAPS3),]
+colors$BAPS3 = factor(colors$BAPS3, levels = c(colors$BAPS3, "Other"))
+
+global_tree_clean$data$BAPS3_color = factor(global_tree_clean$data$BAPS3_color, levels =levels(colors$BAPS3))
+
+global_tree_clean$data$SublineageLabel = ""
+# for(i in names(which(table(global_tree_clean$data$BAPS3_color) >= 10))){
+#   #global_tree_clean$data[min(global_tree_clean$data[which(global_tree_clean$data$BAPS3_color == i),"y"]),"SublineageLabel"] 
+#   #as.character(global_tree_clean$data[min(global_tree_clean$data[which(global_tree_clean$data$BAPS3_color == i),"y"]),"BAPS3_color"])
+#   m = min(global_tree_clean$data[which(global_tree_clean$data$BAPS3_color == i),"y"])
+#   global_tree_clean$data[which(global_tree_clean$data$y == m),"SublineageLabel"] = i}
+for(i in names(which(table(global_tree_clean$data$BAPS3_color) >= 10))){
+  r = quantile(sort(global_tree_clean$data[which(global_tree_clean$data$BAPS3_color == i),"y"]), c(0.1, 0.9))
+  m = getMRCA(global_tree_clean$tree, global_tree_clean$data[which(global_tree_clean$data$y > r[1] & global_tree_clean$data$y < r[2]),"node"])
+  #as.character(global_tree_clean$data[min(global_tree_clean$data[which(global_tree_clean$data$BAPS3_color == i),"y"]),"BAPS3_color"])
+  global_tree_clean$data[which(global_tree_clean$data$node == m),"SublineageLabel"] = i
+  print(i)
+  print(unique(global_tree_clean$data[which(global_tree_clean$data$SublineageLabel == "BD2.1.1"),]))
+}
+
+sort(unique(global_tree_clean$data$SublineageLabel))
+
+bd1bd2 =tidytree::tree_subset(global_tree_clean$tree, 5490, levels_back = 0)
+bd1bd2_data = merge(as.data.frame(fortify(bd1bd2)), global_tree_clean$data[,c(1,10:ncol(global_tree_clean$data))], by = "label", all.x = T)
+bd1bd2_data[which(bd1bd2_data$SublineageLabel == "Other"),"SublineageLabel"] = ""
+bd1bd2_data[which(bd1bd2_data$SublineageLabel == ""), "SublineageLabel"] = NA
+table(bd1bd2_data$SublineageLabel)
+bd1bd2_data$SublineageLabel = factor(bd1bd2_data$SublineageLabel, levels = levels(colors$BAPS3))
+
+bd1bd2_data$Newtiplab = NA
+bd1bd2_data[seq(from = 1, to = nrow(bd1bd2_data), by = 20),"Newtiplab"] = bd1bd2_data[seq(from = 1, to = nrow(bd1bd2_data), by = 20),"BAPS3"]
+
+bd1bd2_data = bd1bd2_data[order(bd1bd2_data$y, decreasing = T),]
+data.frame(values = rle(bd1bd2_data$BAPS3)$values, lengths = rle(bd1bd2_data$BAPS3)$lengths)
+
+x =  ggtree(bd1bd2, aes(color = BAPS3_color), mrsd=recent) %<+% bd1bd2_data + scale_color_manual(values = c(colors[which(colors$BAPS3 %in% global_tree_clean$data$BAPS3_color),"col"], "grey")) + theme_tree2() 
+hmap = bd1bd2_data[which(bd1bd2_data$isTip == T),c("label", "BAPS3_color")]
+hmap2 = data.frame(BAPS3_color =hmap$BAPS3_color)
+rownames(hmap2) = hmap$label
+hmap2$BAPS3_color
+colors = colors[order(colors$BAPS3),]
+col = c(colors[which(colors$BAPS3 %in% global_tree_clean$data$BAPS3_color),"col"][c(1:16)], "grey", colors[which(colors$BAPS3 %in% global_tree_clean$data$BAPS3_color),"col"][c(17:36)])
+gheatmap(x, hmap2, color = NA)  + scale_fill_manual(values = col) 
+
+#gheatmap(x, hmap2, color = NA)  + scale_fill_manual(values = col) + geom_nodelab(aes(label = SublineageLabel), color = "black")
+gheatmap(x, hmap2, color = NA)  + scale_fill_manual(values = col) + geom_tiplab(aes(label = Newtiplab), color = "black",  size = 3) 
+ggsave("Sublineagebands.svg", height = 10, width = 15)
+x
+ggsave("SublineageTreeonly.svg", height = 10, width = 15)
+
+
+#MGE tree
+x = "mge_profile.nexus"
+df <- as.character(read.delim(x, fill = T, quote = "!!")[6,1])
+df = strsplit(df, split = "]")[[1]]
+df = data.frame(node = gsub(":.*", "", df), location = gsub(".*=", "", df))
+df$node = gsub("[(]|[)]|,| Tree tree1=|;","", df$node)
+df[which(df$node == "NODE_0000000"),"location"] = NA
+df$location = gsub("\\\\", "", df$location)
+df$location =  gsub('"', '',  df$location)
+colnames(df)[2] = "MGE_Replacement"
+table(df$node %in% global_tree_clean$data$label)
+levels = c("PLE1 ICE-TET", "VC0490-K147fs PLE1 ICE-TET", "VC0490-K147fs VC0491-ins PLE1 ICE-TET", "VC0490-K147fs ΔVC0491-VC0494 PLE1 ICE-TET","VC0490-K147fs ΔVC0491-VC0494 wbeT-ins PLE1 ICE-TET", "VC0490-K147fs ΔVC0491-VC0494 wbeT-ins ICE-TET", "VC0490-K147fs ΔVC0491-VC0494 wbeT-ins", "ICE-GEN", "PLE11 ICE-GEN", "wbeT-ins PLE11 ICE-GEN")
+
+#global_tree_clean$data
+bd1bd2_data = merge(bd1bd2_data, df, by.x = "label", by.y = "node", all.x = T)
+bd1bd2_data[intersect(grep("PLE", bd1bd2_data$MGE_Replacement),which(bd1bd2_data$PLE == "None")),"MGE_Replacement"] = gsub("PLE1", "", bd1bd2_data[intersect(grep("PLE", bd1bd2_data$MGE_Replacement),which(bd1bd2_data$PLE == "None")),"MGE_Replacement"] )
+bd1bd2_data$MGE_Replacement = gsub("  ", " ", bd1bd2_data$MGE_Replacement)
+bd1bd2_data$MGE_Replacement = gsub("  ", " ", bd1bd2_data$MGE_Replacement)
+bd1bd2_data$MGE_Replacement = gsub("  ", " ", bd1bd2_data$MGE_Replacement)
+bd1bd2_data$MGE_Replacement = trimws(bd1bd2_data$MGE_Replacement)
+sort(table(bd1bd2_data[which(bd1bd2_data$PLE == "None"),"MGE_Replacement"]))
+sort(table(bd1bd2_data$MGE_Replacement))
+bd1bd2_data$MGE = bd1bd2_data$MGE_Replacement
+bd1bd2_data[which(!bd1bd2_data$MGE_Replacement %in% levels),"MGE_Replacement"] = "Other"
+bd1bd2_data$MGE_Replacement = factor(bd1bd2_data$MGE_Replacement, levels = c(levels, "Other"))
+recent = max(bd1bd2_data$date)
+quantile(bd1bd2_data[which(bd1bd2_data$MGE == "VC0490-K147fs ΔVC0491-VC0494 wbeT-ins ICE-TET"),"y"])
+bd1bd2_data[which(bd1bd2_data$y > 1517 & bd1bd2_data$y < 1666),"MGE"] = "VC0490-K147fs ΔVC0491-VC0494 wbeT-ins ICE-TET"
+bd1bd2_data[which(bd1bd2_data$y > 1517 & bd1bd2_data$y < 1666),"MGE_Replacement"] = "VC0490-K147fs ΔVC0491-VC0494 wbeT-ins ICE-TET"
+
+
+ggtree(bd1bd2, aes(color = MGE_Replacement), mrsd=recent) %<+% bd1bd2_data + scale_color_manual(values = c(brewer.pal(10, "Spectral")[1],brewer.pal(9, "Spectral"), "grey")) + theme(legend.position = "left") + theme_tree2() 
+ggsave("MGETreeonly.svg", height = 10, width = 15)
+
+
+
+
+  
+#### Sublineage replacement ####
+dyn = as.data.frame(table(global[which(global$Country == "Bangladesh" & global$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance", "2022-2023 2% study (This study)")),c("DecimalDate", "BAPS3")]))
+dyn$DecimalDate = as.numeric(as.character(dyn$DecimalDate))
+ggplot(dyn, aes(x = DecimalDate, y = Freq, fill = BAPS3)) + 
+  geom_stream(type = "ridge", color = "black", bw = 0.4) +
+  scale_fill_manual(values = colors[which(colors$BAPS3 %in% dyn$BAPS3, ),"col"]) +  
+  theme_bw() + 
+  theme(legend.position = "right", panel.grid.major = element_blank(),panel.grid.minor = element_blank(), text = element_text(size = 16), legend.text = element_text(size = 10)) +
+  annotate(geom = "rect", xmin = 2016, xmax = 2016.333, ymin = -Inf, ymax = Inf, alpha = 0.9, color = NA, fill = "white") +
+  annotate(geom = "rect", xmin = 2018.5, xmax = 2022, ymin = -Inf, ymax = Inf, alpha = 0.9, color = NA, fill = "white") +
+  labs(x = "Year", y = "Frequency", fill = "Sublineage") +
+  annotate(geom = "text", x = 2015, y = 50, label = "Nationwide Surveillance\n10 sites") +
+  annotate(geom = "text", x = 2017.3, y = 120, label = "Nationwide Surveillance\n22 sites") +
+  annotate(geom = "text", x = 2022.6, y = 30, label = "2% study\nDhaka") 
+ggsave("2a Sublineage Dynamics.svg", width = 10, height = 4)
+
+
+#Now do by MGE profile
+study = global[which(global$Country == "Bangladesh" & global$Study %in% c("2014-2018 Surveillance", "2022-2023 2% study (This study)")),]
+study$MGE_Replacement = ""
+#VSP-II
+study[grep("K147fs", study$VC_0490.var),"MGE_Replacement"] = "VC0490-K147fs"
+study[grep("VC_0491-ins", study$VSP_II),"MGE_Replacement"] = paste(study[grep("VC_0491-ins", study$VSP_II),"MGE_Replacement"], "VC0491-ins")
+study[grep("VC_0491-VC_0498", study$VSP_II),"MGE_Replacement"] = paste(study[grep("VC_0491-VC_0498", study$VSP_II),"MGE_Replacement"], "ΔVC0491-VC0494")
+#Ogawa/Inaba
+study[which(study$VC_0258.assembled != "yes"),"MGE_Replacement"] = paste(study[which(study$VC_0258.assembled != "yes"),"MGE_Replacement"], "wbeT-ins")
+#PLE
+study[which(study$PLE == "PLE1"),"MGE_Replacement"] = paste(study[which(study$PLE == "PLE1"),"MGE_Replacement"] , "PLE1")
+study[which(study$PLE == "PLE11"),"MGE_Replacement"] = paste(study[which(study$PLE == "PLE11"),"MGE_Replacement"] , "PLE11")
+#SXT
+study[which(study$SXT == "ICE-GEN"),"MGE_Replacement"] = paste(study[which(study$SXT == "ICE-GEN"),"MGE_Replacement"] , "ICE-GEN")
+study[which(study$SXT == "ICE-TET"),"MGE_Replacement"] = paste(study[which(study$SXT == "ICE-TET"),"MGE_Replacement"] , "ICE-TET")
+#Summarise
+study$MGE_Replacement = trimws(study$MGE_Replacement)
+levels = c("VC0490-K147fs PLE1 ICE-TET", "VC0490-K147fs VC0491-ins PLE1 ICE-TET", "VC0490-K147fs ΔVC0491-VC0494 PLE1 ICE-TET","VC0490-K147fs ΔVC0491-VC0494 wbeT-ins PLE1 ICE-TET", "VC0490-K147fs ΔVC0491-VC0494 wbeT-ins ICE-TET", "VC0490-K147fs ΔVC0491-VC0494 wbeT-ins", "ICE-GEN", "PLE11 ICE-GEN", "wbeT-ins PLE11 ICE-GEN")
+study[which(!study$MGE_Replacement %in% levels),"MGE_Replacement"] = "Other"
+
+
+dyn = as.data.frame(table(study[,c("DecimalDate", "MGE_Replacement")]))
+dyn$DecimalDate = as.numeric(as.character(dyn$DecimalDate))
+dyn$MGE_Replacement = factor(dyn$MGE_Replacement, levels = c(levels, "Other"))
+ggplot(dyn, aes(x = DecimalDate, y = Freq, fill = MGE_Replacement)) + 
+  geom_stream(type = "ridge", color = "black", bw = 0.4) +
+  scale_fill_manual(values = c(brewer.pal(9, "Spectral"), "grey")) +  
+  theme_bw() + 
+  theme(legend.position = "right", panel.grid.major = element_blank(),panel.grid.minor = element_blank(), text = element_text(size = 16), legend.text = element_text(size = 10)) +
+  annotate(geom = "rect", xmin = 2016, xmax = 2016.333, ymin = -Inf, ymax = Inf, alpha = 0.9, color = NA, fill = "white") +
+  annotate(geom = "rect", xmin = 2018.5, xmax = 2022, ymin = -Inf, ymax = Inf, alpha = 0.9, color = NA, fill = "white") +
+  labs(x = "Year", y = "Frequency", fill = "Mobile genetic elements") +
+  annotate(geom = "text", x = 2015.1, y = 50, label = "Nationwide Surveillance\n10 sites") +
+  annotate(geom = "text", x = 2017, y = 120, label = "Nationwide Surveillance\n22 sites") +
+  annotate(geom = "text", x = 2022.6, y = 30, label = "2% study\nDhaka") 
+
+ggsave("2a MGEdynamics.svg", width = 10, height = 4)
+
+
+#### Sublineage persistence and spread ####
+ridge =global[which(global$Country == "Bangladesh" & global$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance (This study)")),c("Division", "DecimalDate", "BAPS3")]
+bdlevels = c(sort(unique(ridge$BAPS3))[grep("BD2", sort(unique(ridge$BAPS3)))], sort(unique(ridge$BAPS3))[grep("BD1", sort(unique(ridge$BAPS3)))])
+ridge$BAPS3 = factor(ridge$BAPS3, levels = rev(bdlevels))
+
+#Figure to show each sub-lineage by division
+a = ggplot(ridge, aes(x = DecimalDate, y = BAPS3, point_color = Division, fill =Division, color = Division)) + 
+  geom_density_ridges(bandwidth = 0.05,alpha = 0.8) + 
+  theme_minimal() + 
+  scale_fill_manual(values = brewer.pal(8, "Set2")[c(1:4,6:8)]) + 
+  scale_color_manual(values = colorspace::darken(c(brewer.pal(8, "Set2"), "grey"), amount = 0.5)) + labs(y = "Sublineage", x = "Year")  + ggtitle("a.")
+
+
+#Length each sub-lineage lasted for
+l = global[which(global$Country == "Bangladesh" & global$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance (This study)", "2014-2018 Surveillance") & !is.na(global$DecimalDate)),c("Division", "DecimalDate", "BAPS3", "Study")]
+length(unique(l$BAPS3))
+
+min = aggregate(l$DecimalDate, by = list(Division = l$Division, BAPS3 = l$BAPS3), min)
+max = aggregate(l$DecimalDate, by = list(Division = l$Division, BAPS3 = l$BAPS3), max)
+colnames(min)[3] = "min"
+colnames(max)[3] = "max"
+divisions = merge(min, max, by=c("Division", "BAPS3"))
+#Adjust to when first detected in country
+divisions$min_adj = NA
+divisions$order = NA
+divisions = divisions[order(divisions$BAPS3, divisions$min),]
+
+for(i in unique(divisions$BAPS3)){
+  divisions[which(divisions$BAPS3 == i),"min_adj"] = divisions[which(divisions$BAPS3 == i),"min"]-min(divisions[which(divisions$BAPS3 == i),"min"])
+  divisions[which(divisions$BAPS3 == i),"order"] = 1:nrow(divisions[which(divisions$BAPS3 == i),])
+}
+
+model = lm(min_adj~order, divisions)
+newdata = divisions[,-which(colnames(divisions) %in% "min_adj")]
+divisions[,c("fit", "lwr", "upr")] = predict(model, newdata = divisions, interval = "confidence")
+unique(divisions[which(divisions$order == 8),])
+
+b = ggplot(divisions, aes(x = order, y = min_adj,fill = Division, color = Division)) + geom_jitter(shape = 21, size = 3, width = 0.1)   + labs(x = "Number of divisions sublineage detected in", y = "Time since sublineage first detected (years)") + theme_minimal()  + scale_fill_brewer(palette="Set2") + scale_color_manual(values =  colorspace::darken(brewer.pal(8, "Set2"), amount = 0.5)) + ggtitle("b.") + geom_abline(slope = 0.15695, intercept = -0.07049, size = 2)
+b
+
+
+#How long sub-lineages last overall?
+min = aggregate(l$DecimalDate, by = list(BAPS3 = l$BAPS3), min)
+max = aggregate(l$DecimalDate, by = list(BAPS3 = l$BAPS3), max)
+colnames(min)[2] = "min"
+colnames(max)[2] = "max"
+nationwide = merge(min, max, by=c("BAPS3"))
+quantile(12*(nationwide$max - nationwide$min))
+
+
+g = arrangeGrob(a, b)
+ggsave("Figure S3.png", g, height = 9, width = 7)
+
+
+#### MGE replacement ####
+study = global[which(global$Country == "Bangladesh" & global$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance (This study)", "2022-2023 2% study (This study)")),]
+study$MGE_Replacement = ""
+#VSP-II
+study[grep("K147fs", study$VC_0490.var),"MGE_Replacement"] = "VC0490-K147fs"
+study[grep("VC_0491-ins", study$VSP_II),"MGE_Replacement"] = paste(study[grep("VC_0491-ins", study$VSP_II),"MGE_Replacement"], "VC0491-ins")
+study[grep("VC_0491-VC_0498", study$VSP_II),"MGE_Replacement"] = paste(study[grep("VC_0491-VC_0498", study$VSP_II),"MGE_Replacement"], "ΔVC0491-VC0494")
+#Ogawa/Inaba
+study[which(study$VC_0258.assembled != "yes"),"MGE_Replacement"] = paste(study[which(study$VC_0258.assembled != "yes"),"MGE_Replacement"], "wbeT-ins")
+#PLE
+study[which(study$PLE == "PLE1"),"MGE_Replacement"] = paste(study[which(study$PLE == "PLE1"),"MGE_Replacement"] , "PLE1")
+study[which(study$PLE == "PLE11"),"MGE_Replacement"] = paste(study[which(study$PLE == "PLE11"),"MGE_Replacement"] , "PLE11")
+#SXT
+study[which(study$SXT == "ICE-GEN"),"MGE_Replacement"] = paste(study[which(study$SXT == "ICE-GEN"),"MGE_Replacement"] , "ICE-GEN")
+study[which(study$SXT == "ICE-TET"),"MGE_Replacement"] = paste(study[which(study$SXT == "ICE-TET"),"MGE_Replacement"] , "ICE-TET")
+#Summarise
+study$MGE_Replacement = trimws(study$MGE_Replacement)
+levels = c("VC0490-K147fs PLE1 ICE-TET", "VC0490-K147fs VC0491-ins PLE1 ICE-TET", "VC0490-K147fs ΔVC0491-VC0494 PLE1 ICE-TET","VC0490-K147fs ΔVC0491-VC0494 wbeT-ins PLE1 ICE-TET", "VC0490-K147fs ΔVC0491-VC0494 wbeT-ins ICE-TET", "VC0490-K147fs ΔVC0491-VC0494 wbeT-ins", "ICE-GEN", "PLE11 ICE-GEN", "wbeT-ins PLE11 ICE-GEN")
+
+MGE = study[,c("BAPS3", "MGE_Replacement", "DecimalDate")]
+MGE[which(!MGE$MGE_Replacement %in% levels),"MGE_Replacement"] = "Other"
+MGE$MGE_Replacement  = factor(MGE$MGE_Replacement, levels = c(levels, "Other"))
+bdlevels = c(sort(unique(MGE$BAPS3))[grep("BD2", sort(unique(MGE$BAPS3)))], sort(unique(MGE$BAPS3))[grep("BD1", sort(unique(MGE$BAPS3)))])
+MGE$BAPS3 = factor(MGE$BAPS3, levels = rev(bdlevels))
+labels = as.data.frame(table(MGE$BAPS3))
+colnames(labels) = c("BAPS3", "Freq")
+labels$DecimalDate = 2023
+labels$MGE_Replacement = NA
+
+ggplot(MGE, aes(x = DecimalDate, y = BAPS3, point_color = MGE_Replacement, fill =MGE_Replacement, color = MGE_Replacement)) + 
+  geom_density_ridges(bandwidth = 0.05,alpha = 0.8) + 
+  theme_bw() + 
+  scale_fill_manual(values = c(brewer.pal(9, "Spectral"), "grey")) + labs(y = "Sublineage", x = "Year", fill = "Gene & MGE presence/absence") +  
+  scale_color_manual(values = colorspace::darken(c(brewer.pal(9, "Spectral"), "grey"), amount = 0.5)) + geom_text(data = labels, aes(label = paste("n = ", Freq)), color = "black", size = 3, vjust = -1) + 
+  theme(legend.position = "bottom", panel.grid.major = element_blank(),panel.grid.minor = element_blank(), text = element_text(size = 16), legend.text = element_text(size = 10)) + guides(color = F, point_color = F)
+ggsave("2b MGE Dynamics.svg", width = 10, height = 8)
+
+#### Gene numbers ####
+
+#hlyA
+table(global[which(global$BAPS1 == "BD2" & global$Year < 2012), "VC_A0219.assembled"])
+
+table(paste(global[which(global$BAPS1 == "BD2" & global$Year < 2012), "VC_0490.assembled"], global[which(global$BAPS1 == "BD2" & global$Year < 2012), "VC_0491.assembled"], global[which(global$BAPS1 == "BD2" & global$Year < 2012), "VC_0492.assembled"]))
+
+table(global[which(global$Country == "Bangladesh" & global$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance (This study)", "2022-2023 2% study (This study)") & global$Year == 2014),"VC_A0219.assembled"])
+
+
+table(global[which(global$Country == "Bangladesh" & global$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance (This study)", "2022-2023 2% study (This study)") & global$Year == 2016),"VC_0258.assembled"])
+table(global[which(global$Country == "Bangladesh" & global$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance (This study)", "2022-2023 2% study (This study)") & global$Year == 2015),"VC_0258.assembled"])
+
+table(global$Superintegron)
+
+table(global[which(global$Country == "Bangladesh" & global$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance (This study)", "2022-2023 2% study (This study)") & global$Superintegron == " ΔVC_A0455-VC_A0459"),"BAPS3"])
+
+table(global[which(global$Country == "Bangladesh" & global$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance (This study)", "2022-2023 2% study (This study)") & global$Year == 2016),"Superintegron"])
+
+table(global[which(global$Country == "Bangladesh" & global$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance (This study)", "2022-2023 2% study (This study)") & global$Year == 2017),"Superintegron"])/length(global[which(global$Country == "Bangladesh" & global$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance (This study)", "2022-2023 2% study (This study)") & global$Year == 2017),"Superintegron"])
+
+table(global[which(global$Country == "Bangladesh" & global$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance (This study)", "2022-2023 2% study (This study)") & global$Year == 2018),"Superintegron"])/length(global[which(global$Country == "Bangladesh" & global$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance (This study)", "2022-2023 2% study (This study)") & global$Year == 2018),"Superintegron"])
+
+table(global[which(global$Plasmid == "pSA7G1" & global$Year == 2016),"Division"])
+table(global[which(global$Plasmid == "pSA7G1" &  global$Year == 2016),"BAPS3"])
+
+global$KappaPhage
+ggplot(global[which(global$Country == "Bangladesh" & global$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance (This study)", "2022-2023 2% study (This study)") ),], aes(x = Year, fill = KappaPhage)) + geom_bar(stat = "count", position = "fill") + facet_wrap(~Division) 
+
+ggplot(global[which(global$Country == "Bangladesh" & global$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance (This study)", "2022-2023 2% study (This study)")),], aes(x = DecimalDate, fill = PLE)) + geom_bar(stat = "count", position = "fill") + facet_wrap(~BAPS3)
+
+ggplot(global[which(global$Country == "Bangladesh" & global$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance (This study)", "2022-2023 2% study (This study)") & global$BAPS3 %in% c("BD2.2.2", "BD2.4.3") & global$Year == 2017),], aes(x = DecimalDate, fill = PLE)) + geom_bar(stat = "count", position = "fill", bins= 30) + facet_wrap(~BAPS3)
+
+ggplot(global[which(global$Country == "Bangladesh" & global$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance (This study)", "2022-2023 2% study (This study)") & global$BAPS3 %in% c("BD2.2.2", "BD2.4.3") & global$Year == 2017),], aes(x = DecimalDate, fill = SXT)) + geom_bar(stat = "count", position = "fill", bins= 30) + facet_wrap(~BAPS3)
+
+bd1 = unique(global[which(global$Year > 2021 & global$Country == "Bangladesh"),"BAPS3"])
+ggplot(global_tree$data[which(global_tree$data$BAPS3 %in% bd1),], aes(y = y, x = BAPS3)) + geom_boxplot() 
+
+length(global[which(global$Country == "Bangladesh" & global$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance (This study)", "2022-2023 2% study (This study)") & global$Plasmid == "pSA7G1"),"Division"])
+unique(global[which(global$Country == "Bangladesh" & global$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance (This study)", "2022-2023 2% study (This study)") & global$Plasmid == "pSA7G1"),"Division"])
+unique(global[which(global$Country == "Bangladesh" & global$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance (This study)", "2022-2023 2% study (This study)") & global$Plasmid == "pSA7G1"),"BAPS3"])
+
+
+global[which(global$Country == "Bangladesh" & global$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance (This study)", "2022-2023 2% study (This study)") & global$KappaPhage == "Yes"),]
+
+unique(global[which(global$Country == "Bangladesh" & global$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance (This study)", "2022-2023 2% study (This study)") & global$KappaPhage == "Yes"),"Division"])
+
+table(global[which(global$Country == "Bangladesh" & global$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance (This study)", "2022-2023 2% study (This study)") & global$KappaPhage == "Yes"),"Division"])
+
+unique(global[which(global$Country == "Bangladesh" & global$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance (This study)", "2022-2023 2% study (This study)") & global$KappaPhage == "Yes"),"BAPS3"])
+
+
+table(global[which(global$Country == "Bangladesh" & global$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance (This study)", "2022-2023 2% study (This study)") & global$ICP1 != "None"),"Division"])
+
+table(exclude[which(exclude$Country == "Bangladesh" & exclude$Percent_ICP1 > 0 & exclude$Percent_VCholerae > 0.1 & exclude$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance (This study)", "2022-2023 2% study (This study)")),"Division"])
+
+
+#### Inferred spread ####
+#Visualise
+
+
+ggplotly(ggtree(bd2$tree, aes(color = PLE_bd2, Division = City_bd2, year = numeric.date, baps = BAPS3_bd2, label = label)) %<+% bd2$data + theme(legend.position = "left"))
+ggplotly(ggtree(bd2$tree, aes(color = SXT_bd2, Division = City_bd2, year = numeric.date, baps = BAPS3_bd2, label = label)) %<+% bd2$data + theme(legend.position = "left"))
+ggplotly(ggtree(bd2$tree, aes(color = VSP_II_bd2, Division = City_bd2, year = numeric.date, baps = BAPS3_bd2, label = label)) %<+% bd2$data + theme(legend.position = "left"))
+ggplotly(ggtree(bd2$tree, aes(color = Superintegron_bd2, Division = City_bd2, year = numeric.date, baps = BAPS3_bd2, label = label)) %<+% bd2$data + theme(legend.position = "left"))
+
+bd2$data$Site_bd2
+
+#Parent locations
+for(i in 1:nrow(bd1$data)){
+  bd1$data[i,"Parent_Division"] = bd1$data[which(bd1$data[,"node"]  == bd1$data[i,"parent"]),"City_bd1"]
+  bd1$data[i,"Parent_Site"] = bd1$data[which(bd1$data[,"node"]  == bd1$data[i,"parent"]),"Site_bd1"]}
+
+for(i in 1:nrow(bd2$data)){
+  bd2$data[i,"Parent_Division"] = bd2$data[which(bd2$data[,"node"]  == bd2$data[i,"parent"]),"City_bd2"]
+  bd2$data[i,"Parent_Site"] = bd2$data[which(bd2$data[,"node"]  == bd2$data[i,"parent"]),"Site_bd2"]}
+
+transitions = bd2$data[which(bd2$data$Parent_Division != bd2$data$City_bd2),]
+transitions2 = bd1$data[which(bd1$data$Parent_Division != bd1$data$City_bd1),]
+colnames(transitions) = gsub("_bd2", "", colnames(transitions))
+colnames(transitions2) = gsub("_bd1", "", colnames(transitions2))
+transitions$Lineage = "BD2"
+transitions2$Lineage = "BD1"
+transitions = rbind(transitions, transitions2)
+
+#Division x and y
+division <- bangladesh::get_map("division")
+centroid = st_drop_geometry(st_centroid(division) %>%dplyr::mutate(lon = sf::st_coordinates(.)[,1],lat = sf::st_coordinates(.)[,2]))
+transitions = merge(transitions, centroid, by.x = "City", by.y = "Division")
+transitions = merge(transitions, centroid, by.x = "Parent_Division", by.y = "Division")
+transitions$Transition = paste(transitions$Parent_Division, transitions$City, sep = "-> ")
+transitions = transitions[order(transitions$numeric.date),]
+
+#PLE1- BD2.2.2
+
+#If include the whole clade. but includes transmission events with PLE
+# mrca = getMRCA(bd2$tree, transitions[which(transitions$BAPS3 == "BD2.2.2" & transitions$PLE == "None" & transitions$isTip == T),"label"])
+# ple1_2.2.2 = transitions[which(transitions$node %in% getDescendants(bd2$tree, mrca) & transitions$Lineage == "BD2"),]
+# ple1_2.2.2 = merge(ple1_2.2.2[which(!duplicated(ple1_2.2.2$Transition)),] ,as.data.frame(table(ple1_2.2.2$Transition)), by.x = "Transition", by.y = "Var1")
+# ple1_2.2.2$numeric.date = as.numeric(ple1_2.2.2$numeric.date)
+# ple1_2.2.2 = ple1_2.2.2[order(ple1_2.2.2$numeric.date),]
+
+#If just ones lacking PLE and in the right sublineage
+
+
+process_transition = function(input, name){
+data = merge(input[which(!duplicated(input$City)),] ,as.data.frame(table(input$Transition)), by.x = "Transition", by.y = "Var1")
+data$numeric.date = as.numeric(data$numeric.date)
+data = data[order(data$numeric.date),]
+data$Category = name
+return(data)}
+
+data = process_transition(transitions[which(transitions$PLE == "None" & transitions$BAPS3 == "BD2.2.2"),], "PLE- BD2.2.2")
+
+data = process_transition(transitions[which(transitions$SXT == "None" & transitions$BAPS3 == "BD2.2.2"),], "SXT- BD2.2.2")
+
+data = process_transition(transitions[which(transitions$PLE == "None" & transitions$BAPS3 == "BD2.4.3"),], "PLE- BD2.4.3")
+
+data = process_transition(transitions[which(transitions$Superintegron== "ΔVC_A0455-VC_A0459" ),], "ΔVC_A0455-VC_A0459 BD2.4.1")
+
+data = process_transition(transitions[which(transitions$VSP_II == "VC_0490-fs ΔVC_0492-VC_0498" & transitions$BAPS3 == "BD2.2.1"),], "ΔVC_0492-VC_0498 BD2.2.1")
+
+data = process_transition(transitions[which(transitions$BAPS3 == "BD1.3.1"),], "BD1.3.1")
+
+ggplot(data) + 
+  geom_sf(data = division) + 
+  geom_sf_text(data = division, aes(label = Division), size = 3, vjust = -0.5) + 
+  geom_curve(aes(yend = lat.y, xend = lon.y, y = lat.x, x = lon.x, size = Freq, color = numeric.date, alpha = numeric.date), arrow = arrow(length=unit(0.30,"cm"), ends="first", type = "closed"), curvature = 0.2) +
+  scale_alpha(range =c(1, 0.1)) + 
+  scale_size_continuous(range= c(0.2,3)) + 
+  theme_void() + 
+  scale_color_gradientn(colors = rev(brewer.pal(9, "GnBu"))) + 
+  guides(alpha = F) + 
+  labs(color = "Date of first transition", size = "Number of transitions") #+ 
+
+
+transition_summary = rbind(process_transition(transitions[which(transitions$PLE == "None" & transitions$BAPS3 == "BD2.2.2"),], "PLE- BD2.2.2"),
+      process_transition(transitions[which(transitions$SXT == "None" & transitions$BAPS3 == "BD2.2.2"),], "SXT- BD2.2.2"),
+      process_transition(transitions[which(transitions$PLE == "None" & transitions$BAPS3 == "BD2.4.3"),], "PLE- BD2.4.3"),
+      process_transition(transitions[which(transitions$Superintegron== "ΔVC_A0455-VC_A0459" ),], "ΔVC_A0455-VC_A0459 BD2.4.1"),
+      process_transition(transitions[which(transitions$VSP_II == "VC_0490-fs ΔVC_0492-VC_0498" & transitions$BAPS3 == "BD2.2.1"),], "ΔVC_0492-VC_0498 BD2.2.1"),
+      process_transition(transitions[which(transitions$BAPS3 == "BD1.3.1"),], "BD1.3.1") )
+
+#Process dates so relative
+for(i in unique(transition_summary$Category)){
+  transition_summary[which(transition_summary$Category == i),"numeric.date"] = transition_summary[which(transition_summary$Category == i),"numeric.date"] -min( transition_summary[which(transition_summary$Category == i),"numeric.date"])
+  transition_summary[which(transition_summary$Category == i),"Proportion"] = transition_summary[which(transition_summary$Category == i),"Freq"]/sum(transition_summary[which(transition_summary$Category == i),"Freq"])
+  }
+transition_summary$numeric.date = transition_summary$numeric.date*12
+
+transition_summary$Spreader = "Disseminated from Dhaka"
+transition_summary[which(transition_summary$Category %in% c("ΔVC_A0455-VC_A0459 BD2.4.1", "PLE- BD2.4.3")),"Spreader"] = "Disseminated from Chittagong"
+transition_summary$Spreader = factor(transition_summary$Spreader, levels = c("Disseminated from Dhaka", "Disseminated from Chittagong"))
+
+ggplot(transition_summary) + 
+  geom_sf(data = division)  + 
+  geom_curve(data = subset(transition_summary, Category == "ΔVC_0492-VC_0498 BD2.2.1"), aes(yend = lat.y, xend = lon.y, y = lat.x, x = lon.x, color = Category, alpha = numeric.date, size = Proportion), arrow = arrow(length=unit(0.30,"cm"), ends="first", type = "closed"), curvature = 0.1) +
+  geom_curve(data = subset(transition_summary, Category == "PLE- BD2.2.2"), aes(yend = lat.y, xend = lon.y, y = lat.x, x = lon.x, color = Category, alpha = numeric.date, size = Proportion), arrow = arrow(length=unit(0.20,"cm"), ends="first", type = "closed"), curvature = 0.14) +
+  geom_curve(data = subset(transition_summary, Category == "SXT- BD2.2.2"), aes(yend = lat.y, xend = lon.y, y = lat.x, x = lon.x, color = Category, alpha = numeric.date, size = Proportion), arrow = arrow(length=unit(0.30,"cm"), ends="first", type = "closed"), curvature = 0.3) +
+  geom_curve(data = subset(transition_summary, Category == "BD1.3.1"), aes(yend = lat.y, xend = lon.y, y = lat.x, x = lon.x, color = Category, alpha = numeric.date, size = Proportion), arrow = arrow(length=unit(0.30,"cm"), ends="first", type = "closed"), curvature = 0.4) +
+  geom_curve(data = subset(transition_summary, Category == "PLE- BD2.4.3"), aes(yend = lat.y, xend = lon.y, y = lat.x, x = lon.x, color = Category, alpha = numeric.date, size = Proportion), arrow = arrow(length=unit(0.30,"cm"), ends="first", type = "closed"), curvature = 0.1) +
+  geom_curve(data = subset(transition_summary, Category == "ΔVC_A0455-VC_A0459 BD2.4.1"), aes(yend = lat.y, xend = lon.y, y = lat.x, x = lon.x, color = Category, alpha = numeric.date, size = Proportion), arrow = arrow(length=unit(0.20,"cm"), ends="first", type = "closed"), curvature = 0.3) +
+  scale_alpha(range =c(1, 0.1)) + 
+  scale_size_continuous(range= c(0.2,3)) + 
+  theme_void() + 
+  scale_color_manual(values = brewer.pal(6, "Set2")) + 
+  labs(alpha = "Months relative to first transmission event", size = "Relative number of transmission events", color = "Subpopulation") + 
+  geom_sf_text(data = division, aes(label = Division), size = 3, vjust = -0.5, nudge_y = 0.1) + facet_wrap(~Spreader)
+
+#Save map and arrows separately for manipulation
+ggplot(transition_summary) + 
+  geom_curve(data = subset(transition_summary, Category == "ΔVC_0492-VC_0498 BD2.2.1"), aes(yend = lat.y, xend = lon.y, y = lat.x, x = lon.x, color = Category, alpha = numeric.date, size = Proportion), arrow = arrow(length=unit(0.30,"cm"), ends="first", type = "closed"), curvature = 0.1) +
+  geom_curve(data = subset(transition_summary, Category == "PLE- BD2.2.2"), aes(yend = lat.y, xend = lon.y, y = lat.x, x = lon.x, color = Category, alpha = numeric.date, size = Proportion), arrow = arrow(length=unit(0.20,"cm"), ends="first", type = "closed"), curvature = 0.14) +
+  geom_curve(data = subset(transition_summary, Category == "SXT- BD2.2.2"), aes(yend = lat.y, xend = lon.y, y = lat.x, x = lon.x, color = Category, alpha = numeric.date, size = Proportion), arrow = arrow(length=unit(0.30,"cm"), ends="first", type = "closed"), curvature = 0.3) +
+  geom_curve(data = subset(transition_summary, Category == "BD1.3.1"), aes(yend = lat.y, xend = lon.y, y = lat.x, x = lon.x, color = Category, alpha = numeric.date, size = Proportion), arrow = arrow(length=unit(0.30,"cm"), ends="first", type = "closed"), curvature = 0.4) +
+  geom_curve(data = subset(transition_summary, Category == "PLE- BD2.4.3"), aes(yend = lat.y, xend = lon.y, y = lat.x, x = lon.x, color = Category, alpha = numeric.date, size = Proportion), arrow = arrow(length=unit(0.30,"cm"), ends="first", type = "closed"), curvature = 0.1) +
+  geom_curve(data = subset(transition_summary, Category == "ΔVC_A0455-VC_A0459 BD2.4.1"), aes(yend = lat.y, xend = lon.y, y = lat.x, x = lon.x, color = Category, alpha = numeric.date, size = Proportion), arrow = arrow(length=unit(0.20,"cm"), ends="first", type = "closed"), curvature = 0.3) +
+  scale_alpha(range =c(1, 0.1)) + 
+  scale_size_continuous(range= c(0.2,3)) + 
+  theme_void() + 
+  scale_color_manual(values = brewer.pal(6, "Set2")) + 
+  labs(alpha = "Months relative to first transmission event", size = "Relative number of transmission events", color = "Subpopulation") + 
+  geom_sf_text(data = division, aes(label = Division), size = 3, vjust = -0.5, nudge_y = 0.1) + facet_wrap(~Spreader)
+ggsave("Arrows.svg", width = 14, height = 5)
+
+ggplot(transition_summary) + 
+  geom_sf(data = division) + theme_void() + facet_wrap(~Spreader)
+ggsave("Map.png", width = 14, height = 5)
+
+#### Distribution of sporadic MGEs ####
+#pSA7G1
+pSA7G1_image = "pSA7G1.png"
+pSA7G1 = global[which(global$Country == "Bangladesh" & global$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance (This study)", "2022-2023 2% study (This study)") & global$Plasmid == "pSA7G1"),]
+a = ggplot(pSA7G1) + 
+  geom_sf(data = division) + theme_void() +  
+  geom_image(aes(x = HOSP_x, y = HOSP_y, image = pSA7G1_image), position = position_jitter(width = 0.1, height = 0.1), size = 0.03) +  ggtitle("a. pSA7G1") + theme(text = element_text(size = 18))
+
+#K139
+#K139 = "K139.png"
+K139 = as.data.frame(table(global[which(global$Country == "Bangladesh" & global$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance (This study)", "2022-2023 2% study (This study)")),c("Site", "KappaPhage")]))
+K139 = dcast(K139, Site~KappaPhage)
+K139  = merge(K139, unique(global[,c("Site", "HOSP_x", "HOSP_y")]), by = "Site")
+colnames(K139)[3] = c("Yes")
+
+b = ggplot(K139) +
+  geom_sf(data = division) + geom_scatterpie(aes(x=HOSP_x, y=HOSP_y, group=Site), data=K139, cols=c("None", "Yes"), size = 0.1) + scale_fill_manual(values = c("white", brewer.pal(8, "Dark2")[1])) + theme_void() + labs(fill = "K139 in genome") + ggtitle("b. K139") + theme(legend.position = "bottom") + theme(text = element_text(size = 18))
+b
+
+#ICP1
+ICP1 = global[which(global$Country == "Bangladesh" & global$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance (This study)", "2022-2023 2% study (This study)") & global$Percent_ICP1 > 0.1),]
+ICP1$Included = "Yes"
+ICP1$Image = "ICP1.png"
+ICP1_ex = exclude[which(exclude$Country == "Bangladesh" & exclude$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance (This study)", "2022-2023 2% study (This study)") & exclude$Percent_ICP1 > 0.1),]
+ICP1_ex$Included = "No"
+ICP1_ex$Image = "ICP1_ex.png"
+ICP1 = rbind.fill(ICP1, ICP1_ex)
+
+c = ggplot(ICP1) + 
+  geom_sf(data = division) + theme_void() +  
+  geom_image(aes(x = HOSP_x, y = HOSP_y, image = Image), position = position_jitter(width = 0.1, height = 0.15), size = 0.03)+ ggtitle("c. ICP1") + theme(text = element_text(size = 18))
+c
+
+MGE_dist = arrangeGrob(a,b,c, ncol = 3)
+ggsave("MGEmap.png",MGE_dist, height = 10, width = 19)
+
+#### Deletion Genomic context ####
+gannotation <- as.data.frame(rtracklayer::import("~/Documents/Data Analysis/Cholera/Vibrio_cholerae_O1_biovar_eltor_str_N16961_v2.gff"))
+gannotation$forward = gannotation$strand == "+"
+gannotation$MergedStart = gannotation$start
+gannotation$MergedEnd = gannotation$end
+gannotation[which(gannotation$seqnames == "AE003853"),"MergedStart"] = gannotation[which(gannotation$seqnames == "AE003853"),"MergedStart"] + 2961182
+gannotation[which(gannotation$seqnames == "AE003853"),"MergedEnd"] = gannotation[which(gannotation$seqnames == "AE003853"),"MergedEnd"] + 2961182
+gannotation$locus_tag = gsub("VC_", "VC", gannotation$locus_tag)
+
+#hlyA
+hlyA = data.frame(x =  c(237585+(245*3), 237585+(245*3)+17), y = "", label = c("17bp deletion", ""))
+
+a = ggplot(gannotation[which(gannotation$start > 237585-2000 & gannotation$end < 239810+2000 & gannotation$seqnames == "AE003853"),],  aes(xmin = start, xmax = end, fill = locus_tag, y= "", forward = forward)) + geom_gene_arrow() +
+  theme_genes() +
+  geom_gene_label(align = "left", aes(label = locus_tag)) + geom_feature(y = "", x = 237585+(245*3)) + 
+  geom_feature(y = "", x = 237585+(245*3)+17) + 
+  geom_feature_label(data = hlyA, aes(x =x, y = y, label = label)) + theme(legend.position = "none", axis.title.y = element_blank()) + labs(x = "Position (N16961 chr. II)") + ggtitle("a. hlyA (VCA0219)")
+
+#VSP-II
+minidel = data.frame(x =  524676, y = "", label = "1. K147fs")
+gannotation[which(gannotation$locus_tag == "VC0491"),]
+transposon = data.frame(x =  525118+117, y = "", label = "2. Transposon insertion")
+#496-498 always deleted in BD2
+gannotation[which(gannotation$locus_tag %in% paste0("VC0",496:498)),c("start", "end")]
+gannotation[which(gannotation$locus_tag %in% paste0("VC0",492:495)),c("start", "end")]
+
+b = ggplot(gannotation[which(gannotation$locus_tag %in% paste0("VC0", 489:502)),],  aes(xmin = start, xmax = end, fill = locus_tag, y= "", forward = forward)) + geom_gene_arrow() +
+  theme_genes() +
+  geom_gene_label(align = "left", aes(label = locus_tag))  + 
+  theme(legend.position = "none", axis.title.y = element_blank()) + 
+  labs(x = "Position (N16961 chr. I)") + 
+  geom_feature(y = "", x = 524676) + 
+  geom_feature_label(data = minidel, aes(x =x-1000, y = y, label = label))  + geom_feature(y = "", x =525118+117) + 
+  geom_feature_label(data = transposon, aes(x =x+1500, y = y, label = label)) +
+  annotate(geom = "segment", x = 529100, xend = 532440, y = 1.15, yend = 1.15, color = "black") +
+  annotate(geom = "text", x = mean(c(529100,532440)), y = 1.25, label = "Deleted in all BD2", color = "black", size = 3)  +
+  annotate(geom = "segment", x = 525300, xend = 534100, y = 0.9, yend = 0.9, color = "black") +
+  annotate(geom = "text", x = mean(c(525300,534100)), y = 0.8, label = "3. Deletion", color = "black", size = 3) + ggtitle("b. VSP-II")
+b
+
+#wbeT
+#Overhang looks like: >28:60079-60114
+#TGTAGTGGTCAACTAAAATTGGCCACGGTTTTAGA
+gannotation[which(gannotation$locus_tag %in% paste0("VC0", 257:259)),c("start", "end")]
+#Older- 147-155 insertion site
+#Newer- 148-150 insertion site
+insertions = data.frame(x =  c(263536+mean(c(147,155)), 263536+mean(c(148,150))), y = "", label = c("Insertion site (BD2)", "Insertion site (BD1)"))
+
+c = ggplot(gannotation[which(gannotation$locus_tag %in% paste0("VC0", 257:259)),],  aes(xmin = start, xmax = end, fill = locus_tag, y= "", forward = forward)) + geom_gene_arrow() +
+  theme_genes() + 
+  geom_feature(y = "", x = 263687)+ 
+  geom_feature(y = "", x = 263685) + 
+  annotate(geom = "text", label = "Insertion site", x =263685, y = 1.4, size = 3) +
+  geom_gene_label(align = "left", aes(label = locus_tag)) + 
+  theme(legend.position = "none", axis.title.y = element_blank()) + 
+  labs(x = "Position (N16961 chr. I)") + ggtitle("c. wbeT (VC0258)")
+c
+
+#Superintegron deletion
+#Chromosome 2 deletion
+d = ggplot(gannotation[which(gannotation$locus_tag %in% paste0("VCA0", 453:460)),],  aes(xmin = start, xmax = end, fill = locus_tag, y= "", forward = forward)) + geom_gene_arrow() +
+  theme_genes() +
+  geom_gene_label(align = "left", aes(label = locus_tag)) + geom_feature(y = "", x = 520264) +
+  annotate(geom = "segment", x = 3368780-2961182, xend = 3369690-2961182, y = 1.15, yend = 1.15) +
+  annotate(geom = "segment", x = 3367500-2961182, xend = 3371300-2961182, y = 0.8, yend = 0.8) +
+  annotate(geom = "text", x = 408053, y = 1.3, label = "Deleted in BD2")  +
+  annotate(geom = "text", x = 408053, y = 0.63, label = "Deleted in BD2 subclade") +
+  annotate(geom = "segment", x = 3367444-2961182, xend = 3367567-2961182, y = 1, yend = 1, color = "deeppink3", size = 2) +
+  annotate(geom = "segment", x = 3371305-2961182, xend = 3371428-2961182, y = 1, yend = 1, color = "deeppink3", size = 2) + theme(legend.position = "none", axis.title.y = element_blank()) + labs(x = "Position (N16961 chr. II)") +
+  annotate(geom = "segment", x = 3367444-2961182, xend = 3367444-2961182, y = 1, yend = 1.5, color = "deeppink3") +
+  annotate(geom = "segment", x = 3371428-2961182, xend = 3371428-2961182, y = 1, yend = 1.5, color = "deeppink3")+
+  annotate(geom = "segment", x = 3371428-2961182, xend = 3367444-2961182, y = 1.5, yend = 1.5, color = "deeppink3") +
+  annotate(geom = "label", x = 408254, y = 1.5, label = "Homologous regions", color = "deeppink3")+ ggtitle("d. Superintegron deletion")
+d
+
+#acfC
+e = ggplot(gannotation[which(gannotation$locus_tag %in% paste0("VC0", 840:842)),],  aes(xmin = start, xmax = end, fill = locus_tag, y= "", forward = forward)) + geom_gene_arrow() +
+  theme_genes() +
+  geom_gene_label(align = "left", aes(label = locus_tag)) + geom_feature(y = "", x = 903585) + geom_feature_label(y = "", x = 903585, aes(label = "1bp deletion"))  + theme(legend.position = "none", axis.title.y = element_blank()) + labs(x = "Position (N16961 chr. I)")  + ggtitle("e. acfC (VC0841)")
+
+#rtxA
+#TGG --> TGA. Premature stop codon but near to end
+r = read.table("compiled.txt", header = T)
+head(r)
+table(r$VC1451)
+gannotation[which(gannotation$locus_tag == "VC1451"),"start"]
+gannotation[which(gannotation$locus_tag == "VC1451"),"end"]
+1563796-4547*3
+1550120+36
+
+f = ggplot(gannotation[which(gannotation$locus_tag %in% paste0("VC", 1450:1452)),],  aes(xmin = start, xmax = end, fill = locus_tag, y= "", forward = forward)) + geom_gene_arrow() +
+  theme_genes() +
+  geom_gene_label(align = "left", aes(label = locus_tag)) + geom_feature(y = "", x = 1550155) + geom_feature_label(y = "", x = 1550155, aes(label = "TGG>TGA(Stop)"))  + theme(legend.position = "none", axis.title.y = element_blank()) + labs(x = "Position (N16961 chr. I)")  + ggtitle("f. rtxA (VC1451)")
+f
+
+display.brewer.all()
+#26
+col = colorRampPalette(brewer.pal(10, "Spectral"))(25)
+col = colorspace::lighten(col, amount = 0.3)
+
+a = a+scale_fill_manual(values = col[1:2])
+b = b+scale_fill_manual(values = col[3:13])
+c = c+scale_fill_manual(values = col[14:16])
+d = d+scale_fill_manual(values = col[17:23])
+e = e+scale_fill_manual(values = col[23:25])
+
+g = arrangeGrob(a,b,c,d,e, ncol = 1, layout_matrix = matrix(ncol = 1,nrow = 7, c(1,2,2,3,4,4,5)))
+ggsave("Deletioncontext.svg", g, height = 10, width = 6)
+
+#### PLE genomic context ####
+PLE_pangenome_summary <- read.delim("~/Documents/Data Analysis/Vibrio2023/PLE_pangenome_summary.txt")
+PLE_pangenome_summary$orientation = PLE_pangenome_summary$strand == "+"
+length(unique(PLE_pangenome_summary$Gene))
+
+#blast = read.table("~/Documents/Data Analysis/Vibrio2023/PLE_blastresults.txt", fill = T, header = T)
+#PLE_pangenome_summary$PLE = factor(PLE_pangenome_summary$PLE, levels = rev(blast$Description))
+
+#Need to flip some
+for(i in c("PLE9", "PLE8", "PLE3", "PLE10")){
+  ggplot(PLE_pangenome_summary[which(PLE_pangenome_summary$PLE == i),], aes(xmin = start, xmax = end, y = PLE, fill = Gene, forward = orientation)) +
+    geom_gene_arrow() 
+  start = min(PLE_pangenome_summary[which(PLE_pangenome_summary$PLE == i),"start"])
+  end = max(PLE_pangenome_summary[which(PLE_pangenome_summary$PLE == i),"end"])
+  newstart = end - PLE_pangenome_summary[which(PLE_pangenome_summary$PLE == i),"end"]
+  newend = end - PLE_pangenome_summary[which(PLE_pangenome_summary$PLE == i),"start"]
+  
+  PLE_pangenome_summary[which(PLE_pangenome_summary$PLE == i),"orientation"] = PLE_pangenome_summary[which(PLE_pangenome_summary$PLE == i),"strand"] == "-"
+}
+
+unique(PLE_pangenome_summary$PLE)
+
+# ggplot(PLE_pangenome_summary, aes(xmin = start, xmax = end, y = PLE, fill = Gene, forward = orientation)) +
+#   geom_gene_arrow()  +
+#   theme_genes() + scale_fill_manual(values = c(colorRampPalette(brewer.pal(10, "Spectral"))(30), "grey")) + guides(fill = F) + theme(text = element_text(size = 14), axis.title.y = element_blank())
+
+#Color by genes shared with other PLEs
+inple2_10 = PLE_pangenome_summary[which(PLE_pangenome_summary$PLE %in% paste0("PLE", 2:10)),"Gene"] 
+inple1 = PLE_pangenome_summary[which(PLE_pangenome_summary$PLE == "PLE1"),"Gene"] 
+inple11 = PLE_pangenome_summary[which(PLE_pangenome_summary$PLE == "PLE11"),"Gene"] 
+PLE = PLE_pangenome_summary[which(PLE_pangenome_summary$PLE %in% c("PLE1", "PLE11")),]
+PLE[which(PLE$Gene %in% inple11),"Category"] = "Gene unique to PLE11"
+PLE[which(PLE$Gene %in% inple2_10),"Category"] = "Gene found in PLE2-PLE10"
+PLE[which(PLE$Gene %in% inple1),"Category"] = "Gene found in PLE1"
+
+#Assign colour by category
+colors = unique(PLE[,c("Gene", "Category")])
+colors = colors[order(colors$Gene),]
+colors[which(colors$Category == "Gene found in PLE1"),"color"] = colorRampPalette(brewer.pal(9, "GnBu"))(length(colors[which(colors$Category == "Gene found in PLE1"),"color"]))
+colors[which(colors$Category == "Gene found in PLE2-PLE10"),"color"] = colorRampPalette(brewer.pal(9, "RdPu"))(length(colors[which(colors$Category == "Gene found in PLE2-PLE10"),"color"]))
+colors[which(colors$Category == "Gene unique to PLE11"),"color"] = "grey"
+
+ ggplot(PLE, aes(xmin = start, xmax = end, y = PLE, fill = Gene, forward = orientation)) +
+   geom_gene_arrow()  +
+   theme_genes() + scale_fill_manual(values = colors$color) + guides(fill = F) + theme(text = element_text(size = 14), axis.title.y = element_blank())
+
+ggsave("PLE_genes.svg", width = 6, height = 3)
+ 
+#Legend
+leg = ggplot(PLE, aes(x=start, y = end, fill = end)) + geom_point(shape = 21) + scale_fill_gradientn(colors = brewer.pal(9, "GnBu")) + labs(fill = "Gene in PLE1") + new_scale_fill() + geom_point(shape = 21,  aes(y=start, x = end, fill = end)) + scale_fill_gradientn(colors = brewer.pal(9, "RdPu"))  + labs(fill = "Gene in PLEs 2-10")+ new_scale_fill() + geom_point(shape = 21,  aes(y=start+1, x = end-1, fill = end)) + scale_fill_gradient(high = "grey", low = "grey") + labs(fill = "Gene in PLE11 only") + theme(legend.position = "bottom", legend.text = element_blank(), legend.ticks = element_blank()) 
+ggsave("PLE_legend.svg", width = 6, height = 3)
+
+
+#Genomic context
+ple1 = data.frame(x =  411334, y = "", label = "PLE1 insertion site")
+
+ggplot(gannotation[which(gannotation$start > (411334-1000) & gannotation$end < (411334+2000) & gannotation$seqnames == "AE003853"),],  aes(xmin = start, xmax = end, fill = locus_tag, y= "", forward = forward)) + geom_gene_arrow() +
+  theme_genes() +
+  geom_gene_label(align = "left", aes(label = locus_tag)) + geom_feature(y = "", x = 411334) + 
+  geom_feature_label(data = ple1, aes(x =x, y = y, label = label)) + scale_fill_brewer(palette = "Greys") + theme(legend.position = "none", axis.title.y = element_blank()) + labs(x = "Position (N16961 chr. II)")
+
+ggsave("PLE1_insertion.svg", width = 6, height = 3)
+
+#PLE11
+ple11 = data.frame(x =  520264, y = "", label = "PLE11 insertion site")
+
+ggplot(gannotation[which(gannotation$start > (520264-2000) & gannotation$end < (520264+2000) & gannotation$seqnames == "AE003853"),],  aes(xmin = start, xmax = end, fill = locus_tag, y= "", forward = forward)) + geom_gene_arrow() +
+  theme_genes() +
+  geom_gene_label(align = "left", aes(label = locus_tag)) + geom_feature(y = "", x = 520264) + 
+  geom_feature_label(data = ple11, aes(x =x, y = y, label = label)) + scale_fill_brewer(palette = "Greys") + theme(legend.position = "none", axis.title.y = element_blank()) + labs(x = "Position (N16961 chr. II)")
+
+ggsave("PLE11_insertion.svg", width = 6, height = 3)
+
+
+
+
+
+#### Section 2- India dynamics ####
+#### Ganges basin map ####
+basin = st_read("/Users/ab61/Downloads/major_basins_of_the_world_0_0_0")
+basin = basin[which(basin$ID == 406),]
+
+#Complex river
+complex = st_read("/Users/ab61/Downloads/HydroRIVERS_v10_as_shp/HydroRIVERS_v10_as_shp")
+complex = complex[which(complex$ORD_FLOW %in% 2:4),]
+complex = st_crop(complex, basin)
+complex = st_simplify(complex)
+complex$ORD_CLAS = as.numeric(complex$ORD_CLAS)
+
+#Boundaries
+library(rnaturalearth)
+world <- ne_countries(scale = "medium", returnclass = "sf")
+world = world[which(world$sovereignt %in% c("India", "Nepal", "Myanmar", "Bangladesh", "Bhutan", "China", "Pakistan")),]
+
+global[which(global$Study %in% c("2014-2018 Surveillance (Taylor-Brown et al. 2023, NatComm)", "2014-2018 Surveillance (This study)")),"Study"] = "2014-2018 Surveillance" 
+global[which(global$Study == "2014-2018 Surveillance" ),"Reference"] = "2014-2018 Surveillance" 
+global[which(global$Study == "2022-2023 2% study (This study)"), "Reference"] = "2% study"
+global[which(global$Reference == "Chowdhury et al. PLoS NTD 2015"), "Site"] = "iccdr,b"
+global[which(global$Site == "iccdr,b"),"Site"] = "icddr,b"
+ 
+s1 = unique(global[which(global$Country %in% c("ID","Bangladesh", "India", "Nepal")),c("Country", "City", "Study", "Reference","HOSP_x", "HOSP_y", "Site", "GPS.X", "GPS.Y")])
+s1[which(s1$Reference == "This study"),"Reference"] = s1[which(s1$Reference == "This study"),"Study"]
+
+s1[which(is.na(s1$HOSP_x)), "HOSP_x"] = s1[which(is.na(s1$HOSP_x)), "GPS.X"] 
+s1[which(is.na(s1$HOSP_y)), "HOSP_y"] = s1[which(is.na(s1$HOSP_y)), "GPS.Y"] 
+
+
+s1 = unique(s1[,c("Reference", "Site","City", "HOSP_x", "HOSP_y", "Country")])
+#Only bother using if 10 or more samples
+studies = names(which(table(global[which(global$Country %in% c("India", "Nepal", "Bangladesh")),"Reference"]) >= 10))
+s1 = s1[which(s1$Reference %in% studies),]
+
+
+#icddr,b
+s1[which(s1$Site == "iccdr,b" & is.na(s1$HOSP_x)),"HOSP_x"] = s1[which(s1$Site == "iccdr,b" & !is.na(s1$HOSP_x)),"HOSP_x"][1]
+s1[which(s1$Site == "iccdr,b" & is.na(s1$HOSP_y)),"HOSP_y"] = s1[which(s1$Site == "iccdr,b" & !is.na(s1$HOSP_x)),"HOSP_y"][1]
+
+
+s1$N = NA
+s1[which(is.na(s1$Site)), "Site"] = s1[which(is.na(s1$Site)), "City"] 
+s1[which(is.na(s1$Site)),"Site"]
+s1 = s1[which(!is.na(s1$HOSP_x)),]
+
+
+for(i in unique(s1$Reference)){
+  for(j in unique(s1[which(s1$Reference == i),"Country"])){
+
+    
+    s1[which(s1$Reference == i & s1$Country == j),"Start"] = min(global[which(global$Reference == i & global$Country == j),"Year"], na.rm = T)
+    
+    s1[which(s1$Reference == i  & s1$Country == j),"End"] = max(global[which(global$Reference == i & global$Country == j),"Year"], na.rm = T)
+    s1[which(s1$Reference == i & s1$Country == j),"N"] = nrow(global[which(global$Reference == i & global$Country == j),])
+  }}
+
+#Labels
+s1$Label = s1$Reference
+s1[which(s1$Study == "Abd El Ghany et al. PLoS Negl Trop Dis 2014 " ),"Label"] = "Abd El Ghany et al. PLoS NTD 2014"
+
+s1[which(s1$Start == s1$End),"Label"] = paste(s1[which(s1$Start == s1$End),"Label"] , s1[which(s1$Start == s1$End),"Start"], sep = "\n")
+s1[which(s1$Start != s1$End),"Label"] = paste(s1[which(s1$Start != s1$End),"Label"] , paste(s1[which(s1$Start != s1$End),"Start"], s1[which(s1$Start != s1$End),"End"], sep = "-"), sep = "\n")
+s1$Label = paste0(s1$Label, " n=", s1$N, sep = " ")
+
+#Combine Kolkata and iccdrb ones
+s1[which(s1$Site == "Kolkata"),"Label"] =paste(s1[which(s1$Site == "Kolkata"),"Label"], collapse = "\n")
+s1[which(s1$Site == "icddr,b"),"Label"] =paste(s1[which(s1$Site == "icddr,b"),"Label"], collapse = "\n")
+
+
+#Add label x and y
+s1$Label.x = NA
+s1$Label.y = NA
+for(i in unique(s1$Label)){
+  s1[which(s1$Label == i),"Label.x"][1] = median(s1[which(s1$Label == i),"HOSP_x"])
+  s1[which(s1$Label == i),"Label.y"][1] = median(s1[which(s1$Label == i),"HOSP_y"])
+}
+s1 = s1[order(s1$N, decreasing = T),]
+
+
+#Correct label for Angermeyer
+table(global[grep("Anger", global$Reference),"Site"])
+
+s1[which(s1$Reference == "Angermeyer et al, 2022 mBio" & s1$Site != "icddr,b"),"Label"] = gsub("n=109", "n=30", s1[which(s1$Reference == "Angermeyer et al, 2022 mBio" & s1$Site != "icddr,b"),"Label"])
+s1[which(s1$Reference == "Angermeyer et al, 2022 mBio" & s1$Site == "icddr,b"),"Label"] = gsub("n=109", "n=79", s1[which(s1$Reference == "Angermeyer et al, 2022 mBio" & s1$Site == "icddr,b"),"Label"])
+
+
+s1$Label = factor(s1$Label, levels = unique(s1$Label))
+
+ggplot(world)  + 
+  geom_sf(fill = "white", linewidth = 0) + 
+  geom_sf(data = basin, linewidth = 0,  fill = brewer.pal(9, "Blues")[1]) + 
+  geom_sf(fill = NA, linewidth = 0.5) + 
+  geom_sf(data =complex, aes(linewidth = ORD_FLOW, color = ORD_FLOW)) + 
+  scale_linewidth(range = c(1,0.2)) + 
+  scale_color_gradient(high = brewer.pal(9, "Blues")[5], low = brewer.pal(9, "Blues")[9]) + theme_void() + xlim(74,96) + ylim(20,32) + 
+  theme(
+    panel.background = element_rect(fill = brewer.pal(9, "Blues")[6])) + new_scale_color() + 
+  geom_jitter(data = s1, aes(x = HOSP_x, y=  HOSP_y, fill = Label), shape = 21, width = 0.03, height = 0.02, size = 2, alpha = 0.8) + theme(legend.position = "bottom") + scale_fill_manual(values = colorRampPalette(brewer.pal(8, "Spectral"))(13)) + theme(legend.position = "none")
+
+ggsave("GangesSamples.png", width = 15, height = 10)
+
+
+ggplot(world)  + 
+  #geom_jitter(data = s1, aes(x = HOSP_x, y=  HOSP_y, fill = Label), shape = 21, width = 0.03, height = 0.02, size = 2) + theme(legend.position = "bottom") + scale_fill_manual(values = colorRampPalette(brewer.pal(8, "Dark2"))(13)) +
+  geom_label(data = s1, aes(x = Label.x, y=  Label.y, label = Label, fill = Label), size = 5, color = "black", alpha = 0.8) + theme(legend.position = "none") + xlim(74,96) + ylim(20,32) + theme_void()  + scale_fill_manual(values = colorRampPalette(brewer.pal(8, "Spectral"))(13)) + theme(legend.position = "none")
+
+ggsave("GangesSamples.svg", width = 15, height = 10)
+
+#### Sublineages over time numbers ####
+northindia = global[which(global$HOSP_y > 25 & global$Country == "India" & global$Year > 2003),c("Year", "BAPS3")]
+northindia = northindia[order(northindia$Year),]
+min = northindia[which(!duplicated(northindia$BAPS3)),]
+northindia = northindia[order(northindia$Year, decreasing = T),]
+max  = northindia[which(!duplicated(northindia$BAPS3)),]
+length = merge(min, max, by = "BAPS3")
+median(length$Year.y - length$Year.x)
+range(length$Year.y - length$Year.x)
+
+kolkata = global[which(global$City == "Kolkata" & global$Year > 2003),c("Year", "BAPS3")]
+kolkata = kolkata[order(kolkata$Year),]
+min = kolkata[which(!duplicated(kolkata$BAPS3)),]
+kolkata = kolkata[order(kolkata$Year, decreasing = T),]
+max  = kolkata[which(!duplicated(kolkata$BAPS3)),]
+length = merge(min, max, by = "BAPS3")
+mean(length$Year.y - length$Year.x)
+range(length$Year.y - length$Year.x)
+
+#Proportion of each BAPS1 over time
+prop = as.data.frame(table(global[which(global$Country %in% c("India", "Bangladesh") & global$Year > 2000),c("Year", "BAPS1", "Country")]))
+ggplot(prop, aes(x = as.numeric(as.character(Year)), y = Freq, fill = BAPS1)) + geom_bar(stat = "identity", color = "black", position = "fill") + facet_wrap(~Country, ncol = 1)
+
+prop = as.matrix(table(global[which(global$Country == "India"),c("Year", "BAPS1")]))
+round(prop/rowSums(prop), 2)
+prop = as.matrix(table(global[which(global$Country == "Bangladesh"),c("Year", "BAPS1")]))
+round(prop/rowSums(prop), 2)
+
+bd = unique(global[which(global$BAPS1 == "BD2" & global$Country == "Bangladesh" & global$Year %in% c(2013:2018)),"BAPS3"])
+not_bd = unique(global[which(global$BAPS1 == "BD2" & global$Country != "Bangladesh"),"BAPS3"])
+length(bd)
+length(intersect(bd, not_bd))
+
+
+
+length(intersect(unique(), unique(global[which(global$BAPS1 == "BD2" & global$Country != "Bangladesh" & global$Year %in% c(2013:2017)),"BAPS3"])))
+
+
+#### Sublineages over time figures ####
+
+#North India
+#ggplot(global[which(global$Country == "India"),], aes(x = HOSP_x, y = HOSP_y))+ geom_point() + geom_label(aes(label = City))
+dyn = as.data.frame(table(global[which(global$HOSP_y > 25 & global$Country == "India" & global$Year > 2003),c("Year", "BAPS3")]))
+dyn$Year = as.numeric(as.character(dyn$Year))
+a = ggplot(dyn, aes(x = Year, y = Freq, fill = BAPS3)) + 
+  geom_stream(type = "proportional", color = "black") + scale_fill_manual(values = colors[which(colors$BAPS3 %in% dyn$BAPS3), "col"]) + theme_minimal() +
+  theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(), text = element_text(size = 16), legend.text = element_text(size = 10), legend.position = "none", axis.title.x = element_blank()) + facet_grid(~"North India") + scale_y_continuous(breaks=c(0,0.5, 1)) + scale_x_continuous(breaks=c(2005, 2010, 2015, 2020), limits = c(2003, 2024)) + labs(y = "Proportion") 
+
+
+
+dyn2 = as.data.frame(table(global[which(global$City == "Kolkata"  & global$Year > 2003),c("Year", "BAPS3")]))
+dyn2$Year = as.numeric(as.character(dyn2$Year))
+b = ggplot(dyn2, aes(x = Year, y = Freq, fill = BAPS3)) + 
+  geom_stream(type = "proportional", color = "black") + scale_fill_manual(values = colors[which(colors$BAPS3 %in% dyn2$BAPS3), "col"]) + theme_minimal()  +
+  theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(), text = element_text(size = 16), legend.text = element_text(size = 10), legend.position = "none", ) + facet_grid(~"Kolkata") + scale_y_continuous(breaks=c(0,0.5, 1)) + scale_x_continuous(breaks=c(2005, 2010, 2015, 2020), limits = c(2003, 2024)) + labs(y = "Proportion", x = "Year") 
+b
+
+global[which(global$Year < 2014), "DecimalDate"] = global[which(global$Year < 2014), "Year"] 
+dyn3 = as.data.frame(table(global[which(global$Country == "Bangladesh"  & global$Year > 2003),c("DecimalDate", "BAPS3")]))
+#dyn = dyn[which(dyn$Freq > 0),]
+dyn3$DecimalDate = as.numeric(as.character(dyn3$DecimalDate))
+c = ggplot(dyn3, aes(x = DecimalDate, y = Freq, fill = BAPS3)) + 
+  geom_stream(color = "black", type = "proportional") + scale_fill_manual(values = colors[which(colors$BAPS3 %in% dyn3$BAPS3), "col"]) + theme_minimal()  +
+  theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(), text = element_text(size = 16), legend.text = element_text(size = 10), legend.position = "none", axis.title.x = element_blank()) + facet_grid(~"Bangladesh") + scale_y_continuous(breaks=c(0,0.5, 1)) + scale_x_continuous(breaks=c(2005, 2010, 2015, 2020), limits = c(2003, 2024)) + labs(y = "Proportion")
+c
+
+
+g = arrangeGrob(c,a,b, ncol = 1)
+ggsave("Figure 2a.svg", g, height = 6, width = 7)
+
+
+
+#Legend
+dyn_all = as.data.frame(table(global[which((global$City == "Kolkata" | global$Country == "Bangladesh" | (global$HOSP_y > 25 & global$Country == "India"))  & global$Year > 2003),c("Year", "BAPS3")]))
+dyn_all$Year = as.numeric(as.character(dyn_all$Year))
+dyn_leg = ggplot(dyn_all, aes(x = Year, y = Freq, fill = BAPS3)) + 
+  geom_stream(type = "proportional", color = "black") + scale_fill_manual(values = colors[which(colors$BAPS3 %in% dyn_all$BAPS3), "col"]) + labs(fill = "Sub-lineage")
+leg = cowplot::get_legend(dyn_leg)
+grid.newpage()
+grid.draw(leg)
+ggsave("legend_dynamics.svg", plot = grid.arrange(leg), width=10, height=4)
+
+
+
+
+
+
+
+
+
+
+
+#### Sublineages shared between regions ####
+kol = unique(global[which(global$City == "Kolkata" & global$Year %in% 2003:2016), "BAPS3"])
+ind = unique(global[which(global$Country == "Bangladesh" & global$Year %in% 2003:2016), "BAPS3"])
+bd = unique(global[which(global$HOSP_y > 25 & global$Country == "India" & global$Year %in% 2003:2016),c("BAPS3")])
+length(intersect(kol, bd))
+length(intersect(kol, ind))
+length(intersect(bd, ind))
+
+
+
+
+##### Nepal, Assam, Khulna ####
+khulna = global[which(global$Division == "Khulna"), "BAPS3"]
+kol =  global[which(global$City == "Kolkata"), "BAPS3"]
+table(khulna %in% kol)
+
+#Better to represent as scatterpie
+#Nepal
+#Sublineages
+df = global[which(global$Year == 2010 & global$Country %in% c("Nepal","India", "Bangladesh")),]
+df$Country = factor(df$Country, levels = c( "India", "Nepal","Bangladesh"))
+df = dcast(as.data.frame(table(df[,c("Country", "BAPS3")])), Country~BAPS3)
+
+#GPS
+gps = unique(global[which(global$City %in% c("Delhi", "Dhaka", "Kathmandu")),c("Country","HOSP_x", "HOSP_y", "GPS.X", "GPS.Y")])
+gps[which(is.na(gps$HOSP_x)), "HOSP_x"] = gps[which(is.na(gps$HOSP_x)), "GPS.X"]
+gps[which(is.na(gps$HOSP_y)), "HOSP_y"] = gps[which(is.na(gps$HOSP_y)), "GPS.Y"]
+gps = unique(gps[,c("Country", "HOSP_x", "HOSP_y")])
+gps[which(gps$Country == "India"), "HOSP_y"] = 25
+gps[which(gps$Country == "India"), "HOSP_x"] = 79
+
+#Merge
+df = merge(df, gps, by = "Country")
+
+#Add a segment for shared
+#Country 1, Country 2, Sublineage
+sublin = unique(global[which(global$Year == 2010 & global$Country %in% c("Nepal","India", "Bangladesh")), c("BAPS3", "Country")])
+
+segments = data.frame(Country1 = c("Nepal", "India", "Bangladesh"), Country2 = c("India", "Bangladesh", "Nepal"), Shared = NA)
+for(i in 1:nrow(segments)){
+  segments[i,"Shared"] = length(intersect(sublin[which(sublin$Country == segments[i,"Country1"]), "BAPS3"], sublin[which(sublin$Country == segments[i,"Country2"]), "BAPS3"])) }
+segments = merge(segments, gps, by.x = "Country1", by.y = "Country")
+segments = merge(segments, gps, by.x = "Country2", by.y = "Country")
+
+world <- ne_countries(scale = "medium", returnclass = "sf")
+world = world[which(world$sovereignt %in% c("India", "Nepal", "Myanmar", "Bangladesh", "Bhutan", "China", "Pakistan")),]
+
+a = ggplot(world)  +
+  geom_sf(data = world)  + theme_void()  + theme(text = element_text(size = 18)) + xlim(74,96) + ylim(20,32) + scale_fill_manual(values = colors[which(colors$BAPS3 %in% sublin$BAPS3), "col"]) + geom_segment(data = segments[which(segments$Country1 == "Nepal"| segments$Country2 == "Nepal"),], aes(x = HOSP_x.x, xend= HOSP_x.y, y = HOSP_y.x, yend = HOSP_y.y,linewidth = Shared)) + scale_linewidth(range = c(0,4), limits = c(0,9)) + geom_scatterpie(aes(x=HOSP_x, y=HOSP_y, group=Country), data=df, cols=colnames(df)[2:7], size = 0.2, pie_scale =7)  + labs(linewidth = "No. sub-lineages shared", fill = "Sublineage")
+a
+  
+#Assam
+global$Category = NA
+global[which(global$Country == "Bangladesh"), "Category"] = "Bangladesh"
+global[which(global$Country == "India" & global$HOSP_y > 25), "Category"] = "North India"
+global[which(global$City == "Kolkata"), "Category"] = "Kolkata"
+global[which(global$City == "Assam"), "Category"] = "Assam"
+
+df = global[which(global$Year %in%  2002:2005),]
+df = dcast(as.data.frame(table(df[,c("Category", "BAPS3")])), Category~BAPS3)
+
+#Function for unique combinations
+combinations = function(x){
+  all = as.data.frame(matrix(ncol = 2, nrow = 0))
+  for(i in x){all = rbind(all,  df = data.frame(V1 = i, V2 = x))}
+for(i in 1:nrow(all)){all[i,c("V1", "V2")] = sort(as.character(all[i,c("V1", "V2")]))}
+  all = unique(all[which(all$V1 != all$V2),])
+  return(all)}
+
+#GPS
+global[which(global$City == "Kolkata"), "HOSP_x"] = global[which(global$City == "Kolkata"), "GPS.X"]
+global[which(global$City == "Kolkata"), "HOSP_y"] = global[which(global$City == "Kolkata"), "GPS.Y"]
+gps = unique(global[which(global$City %in% c("Delhi", "Dhaka", "Assam", "Kolkata")),c("Category","City","HOSP_x", "HOSP_y")])
+gps[which(gps$City == "Dhaka"),"HOSP_y"] = 22
+gps[which(gps$City == "Dhaka"),"HOSP_x"] = 91
+
+#Merge
+df = merge(df, gps, by = "Category")
+
+#Add a segment for shared
+#Country 1, Country 2, Sublineage
+sublin = unique(global[which(global$Year %in%  2002:2005 & !is.na(global$Category)),c("BAPS3", "Category")])
+segments = combinations(no_na(unique(global$Category)))
+colnames(segments) = c("Category1", "Category2")
+segments$Shared = NA  
+
+for(i in 1:nrow(segments)){
+  segments[i,"Shared"] = length(intersect(sublin[which(sublin$Category == segments[i,"Category1"]), "BAPS3"], sublin[which(sublin$Category == segments[i,"Category2"]), "BAPS3"])) }
+
+segments = merge(segments, gps, by.x = "Category1", by.y = "Category")
+segments = merge(segments, gps, by.x = "Category2", by.y = "Category")
+
+
+b = ggplot(world)  +
+  geom_sf(data = world)  + theme_void()   + theme(text = element_text(size = 18)) + xlim(74,96) + ylim(20,32) + scale_fill_manual(values = colors[which(colors$BAPS3 %in% sublin$BAPS3), "col"]) + geom_segment(data = segments[which(segments$Category1 == "Assam" | segments$Category2 == "Assam"),], aes(x = HOSP_x.x, xend= HOSP_x.y, y = HOSP_y.x, yend = HOSP_y.y,linewidth = Shared)) + scale_linewidth(range = c(0,4), limits = c(0,9)) + geom_scatterpie(aes(x=HOSP_x, y=HOSP_y, group=Category), data=df, cols=colnames(df)[grep("[.]", colnames(df))], size = 0.2, pie_scale =5)  + labs(linewidth = "No. sub-lineages shared", fill = "Sublineage")
+
+
+#Khulna
+global$Category = NA
+global[which(global$Country == "Bangladesh"), "Category"] = "Bangladesh"
+global[which(global$Division == "Khulna"), "Category"] = "Khulna"
+global[which(global$Country == "India" & global$HOSP_y > 25), "Category"] = "North India"
+global[which(global$City == "Kolkata"), "Category"] = "Kolkata"
+
+df = global[which(global$Year %in%  2015:2018),]
+df = dcast(as.data.frame(table(df[,c("Category", "BAPS3")])), Category~BAPS3)
+
+
+#GPS
+unique(global$City)
+gps = unique(global[which(global$City %in% c("Delhi", "Dhaka",  "Kolkata") | global$Division == "Khulna"),c("Category","City","HOSP_x", "HOSP_y")])[1:4,]
+gps[which(gps$Category == "Khulna"),"HOSP_x"] = gps[which(gps$Category == "Khulna"),"HOSP_x"]+0.5
+gps[which(gps$Category == "Kolkata"),"HOSP_x"] = gps[which(gps$Category == "Kolkata"),"HOSP_x"]-0.2
+#Merge
+df = merge(df, gps, by = "Category")
+
+#Add a segment for shared
+#Country 1, Country 2, Sublineage
+sublin = unique(global[which(global$Year %in%  2015:2018 & global$Category %in% c("Khulna", "Bangladesh", "Kolkata")),c("BAPS3", "Category")])
+segments = data.frame(Category1 = c("Khulna", "Khulna"), Category2 = c("Bangladesh", "Kolkata"), Shared = NA)
+
+for(i in 1:nrow(segments)){
+  segments[i,"Shared"] = length(intersect(sublin[which(sublin$Category == segments[i,"Category1"]), "BAPS3"], sublin[which(sublin$Category == segments[i,"Category2"]), "BAPS3"])) }
+
+segments = merge(segments, gps, by.x = "Category1", by.y = "Category")
+segments = merge(segments, gps, by.x = "Category2", by.y = "Category")
+
+ 
+c = ggplot(world)  +
+  geom_sf(data = world)  + 
+  theme_void()  + 
+  theme(text = element_text(size = 18)) + 
+  scale_fill_manual(values = colors[which(colors$BAPS3 %in% sublin$BAPS3), "col"]) + geom_segment(data = segments, aes(x = HOSP_x.x, xend= HOSP_x.y, y = HOSP_y.x, yend = HOSP_y.y,linewidth = Shared)) + 
+  scale_linewidth(range = c(0,4), limits = c(0,9)) + geom_scatterpie(aes(x=HOSP_x, y=HOSP_y, group=Category), data=df, cols=colnames(df)[grep("[.]", colnames(df))], size = 0.2, pie_scale =2)  + labs(linewidth = "No. sub-lineages shared", fill = "Sublineage") + xlim(85, 92) + ylim(21, 25) 
+
+
+
+g = arrangeGrob(c+ theme(legend.position = "none",panel.border = element_rect(colour = "white", fill=NA, linewidth=5), title = element_text(size = 12)) + ggtitle("a. Khulna (2015-2018)"),
+                b+ theme(legend.position = "none",panel.border = element_rect(colour = "white", fill=NA, linewidth=5), title = element_text(size = 12)) + ggtitle("b. Assam (2002-2005)"),
+                a + theme(legend.position = "none",panel.border = element_rect(colour = "white", fill=NA, linewidth=5), title = element_text(size = 12)) + ggtitle("c. Nepal (2010)"), ncol = 3)
+ggsave("Figure S8.png", g, height = 3, width = 9)
+
+#Legend
+sublin = unique(c(global[which(global$Year %in%  2002:2005 & !is.na(global$Category)),c("BAPS3")], global[which(global$Year %in%  2015:2018 & global$Category %in% c("Khulna", "Bangladesh", "Kolkata")),c("BAPS3")], global[which(global$Year == 2010 & global$Country %in% c("Nepal","India", "Bangladesh")), c("BAPS3")]))
+
+leg = ggplot(global[which(global$BAPS3 %in% sublin),], aes(fill = BAPS3, x = Year)) + geom_bar(color = "black", stat = "count") + scale_fill_manual(values = colors[which(colors$BAPS3 %in% sublin),"col"]) + theme_void() + geom_line(data = data.frame(x = 1:9, y = 1:9, BAPS3 = sublin[1:9]), aes(x = x, y = y, linewidth = y)) + labs(fill = "Sublineage", linewidth = "No. sublineages shared") + theme(legend.position = "top") + guides(fill=guide_legend(ncol=10))
+ggsave("Shared_sublineages_legend.svg", leg, width = 10, height = 5)
+
+
+#### Transmission event summary map ####
+global_tree$data$parentcountry = NA
+for(i in 1:nrow(global_tree$data)){
+  global_tree$data[i,"parentcountry"] = global_tree$data[which(global_tree$data$node == global_tree$data[i,"parent"]),"Country"]
+  global_tree$data[i,"parentcity"] = global_tree$data[which(global_tree$data$node == global_tree$data[i,"parent"]),"City"]
+}
+
+se = unique(global[which(global$Subregion == "South Asia"),"Country"])
+not_se = unique(global[which(global$Subregion != "South Asia"),"Country"])
+
+export = global_tree$data[which(global_tree$data$parentcountry != global_tree$data$Country),]
+#For each export event, calculate the number of samples descended from that export event that fall in a) The country exported to b) Any country other than the country of origin
+export$Downstream_country = NA
+export$Downstream_total = NA
+for(i in 1:nrow(export)){
+  print(i)
+  parent = export[i,"parentcountry"]
+  child = export[i,"Country"]
+  des = getDescendants(global_tree$tree,export[i,"node"])
+  des = global_tree$data[which(global_tree$data$node %in% des),]
+  #If re-enters parent country and spreads from there, exclude from this
+  if(length(des[which(des$Country == parent),"node"] > 0)){
+  exclude = c()
+  for(x in des[which(des$Country == parent),"node"]){
+    exclude = unique(c(exclude, getDescendants(global_tree$tree, x)))
+  }
+  des = des[-which(des$node %in% exclude),]}
+  
+  des = des[which(des$isTip == T),]
+  
+  export[i,"Downstream_total"] = nrow(des)
+  export[i,"Downstream_country"] = nrow(des[which(des$Country == child),])
+}
+
+#Merge in GPS co-ordinates
+#Countries
+countries = CoordinateCleaner::countryref
+countries = countries[which(!duplicated(countries$name) & countries$type == "country"),]
+countries = countries[,c("name", "centroid.lon",  "centroid.lat")]
+colnames(countries) = c("Location", "X", "Y")
+
+export[which(export$Country == "Republic of South Africa"),"Country"] = "South Africa"
+export[which(export$Country == "Kurdistan"),"Country"] = "Turkey"
+export[which(export$Country %in% c("Gaza", "Palestine")),"Country"] = "Palestinian Territories"
+export[which(export$Country == "Russian Federation"),"Country"] = "Russia"
+export[which(export$parentcountry == "Kurdistan"),"parentCountry"] = "Turkey"
+
+gps = countries
+gps[which(gps$Location == "Guinea-Bissau"),"Location"] = "Guinea Bissau"
+gps[which(gps$Location == "Congo - Kinshasa"),"Location"] = "Democratic Republic of the Congo"
+gps[which(gps$Location == "Myanmar (Burma)"),"Location"] = "Myanmar" 
+
+nrow(global[which(global$Country == "Bangladesh"),])
+nrow(global[which(global$Country == "India"),])
+
+export = merge(export, gps, by.x = "parentcountry", by.y = "Location")
+export = merge(export, gps, by.x = "Country", by.y = "Location")
+colnames(export) = gsub("[.]x",".from", colnames(export))
+colnames(export) = gsub("[.]y",".to", colnames(export))
+
+for(i in 1:nrow(export)){
+  export[i,"Pair"] = paste(sort(as.character(export[i,c("Country", "parentcountry")])), collapse = " ")
+}
+sort(table(export$Pair))
+2020.309-2018.32876712329
+
+save(export, file = "export.Rdata")
+
+nrow(export[which(export$parentcountry %in% se & export$Country %in% not_se & export$numeric.date >= 2003),])
+table(export[which(export$parentcountry %in% se & export$Country %in% not_se & export$numeric.date >= 2003),"parentcountry"])
+
+sort(table(global$Country))
+sort(table(global[which(global$Year >= 2003),"Country"]))
+
+nrow(export[which(export$parentcountry == "India" & export$numeric.date >= 2003),])
+sum(export[which(export$parentcountry == "India" & export$numeric.date >= 2003),"Downstream_total"])
+sum(export[which(export$parentcountry == "India" & export$numeric.date >= 2003 & export$Country %in% not_se),"Downstream_total"])
+
+nrow(export[which(export$parentcountry == "Bangladesh" & export$numeric.date >= 2003),])
+sum(export[which(export$parentcountry == "Bangladesh" & export$numeric.date >= 2003),"Downstream_total"])
+sum(export[which(export$parentcountry == "Bangladesh" & export$numeric.date >= 2003 & export$Country %in% not_se),"Downstream_total"])
+
+
+
+#Global source of cholera: number of transmission events
+order = names(sort(table(global_tree$data[which(global_tree$data$Country != global_tree$data$parentcountry),c("parentcountry")])))
+source = as.data.frame((table(global_tree$data[which(global_tree$data$Country != global_tree$data$parentcountry),c("parentcountry", "BAPS3")])))
+source$parentcountry = factor(source$parentcountry, levels = order)
+ggplot(source, aes(x = parentcountry, y= Freq, fill= BAPS3)) + geom_bar(stat = "identity", color = "black") + theme_minimal() + scale_fill_manual(values = colors[which(colors$BAPS3 %in% source$BAPS3),"col"]) + coord_flip() + labs(x = "Country", y = "Export events", fill = "HierBAPS Lineage") + theme(legend.position = "none")
+
+#Global source of cholera: downstream cases
+down_stream = aggregate(export$Downstream_total, by = list(parentcountry = export$parentcountry, BAPS3 = export$BAPS3), FUN = sum)
+colnames(down_stream)[3] = "Freq"
+
+order =aggregate(export$Downstream_total, by = list(parentcountry = export$parentcountry), FUN = sum)
+down_stream$parentcountry = factor(down_stream$parentcountry, levels = order[order(order$x),"parentcountry"])
+ggplot(down_stream, aes(x = parentcountry, y= Freq, fill= BAPS3)) + geom_bar(stat = "identity", color = "black") + theme_minimal() + scale_fill_manual(values = colors[which(colors$BAPS3 %in% source$BAPS3),"col"]) + coord_flip() + labs(x = "Country", y = "Tips descended from export event", fill = "HierBAPS Lineage") + theme(legend.position = "none")
+
+#Global source of cholera: downstream cases, last 20 years
+ex_20 = export[which(export$numeric.date > 2003),]
+down_stream = aggregate(ex_20$Downstream_total, by = list(parentcountry = ex_20$parentcountry, BAPS3 = ex_20$BAPS3), FUN = sum)
+colnames(down_stream)[3] = "Freq"
+
+order =aggregate(ex_20$Downstream_total, by = list(parentcountry = ex_20$parentcountry), FUN = sum)
+down_stream$parentcountry = factor(down_stream$parentcountry, levels = order[order(order$x),"parentcountry"])
+ggplot(down_stream, aes(x = parentcountry, y= Freq, fill= BAPS3)) + geom_bar(stat = "identity", color = "black") + theme_minimal() + scale_fill_manual(values = colors[which(colors$BAPS3 %in% source$BAPS3),"col"]) + coord_flip() + labs(x = "Country", y = "Tips descended from export event (2003-)", fill = "HierBAPS Lineage") + theme(legend.position = "none")
+
+#Map of export events from India and Bangladesh
+world = rnaturalearth::ne_countries()
+world = world[order(world$pop_est, decreasing = T),]
+world = world[which(!duplicated(world$sovereignt)),]
+
+bd1 = export[which(export$BAPS1 %in% c("BD1", "BD2")),]
+bd1 = bd1[which(bd1$numeric.date > 2003),]
+bd1 = bd1[grep("BD1|BD2", bd1$BAPS3),]
+se = unique(global[which(global$Subregion == "South Asia"),"Country"])
+not_se = unique(global[which(global$Subregion != "South Asia"),"Country"])
+bd1 = bd1[which(bd1$parentcountry %in% se & bd1$Country %in% not_se),]
+bd1[which(bd1$BAPS1 == "BD1"),"BAPS3"] = paste0(" s", bd1[which(bd1$BAPS1 == "BD1"),"BAPS3"] )
+colors$BAPS3 = as.character(colors$BAPS3)
+colors[which(colors$BAPS1 == "BD1"),"BAPS3"]= paste0(" s", colors[which(colors$BAPS1 == "BD1"),"BAPS3"])
+
+
+ggplot(world)+ 
+  geom_sf(fill= "grey", color = NA)+ 
+  theme_void() + 
+  theme(text = element_text(size = 14), legend.position = "bottom")   + scale_size(range = c(0, 6)) +
+  scale_color_manual(values = colors[which(colors$BAPS3 %in% bd1$BAPS3),"col"]) + 
+  xlim(-80,110) + ylim(-50,90) + 
+  labs(size = "No. samples descended\nfrom export event", color = "Sub-lineage") +
+  geom_curve(data =  bd1[-which((bd1$Country == "Kenya" & bd1$Downstream_total < 100)| bd1$BAPS1 == "BD2"),], aes(x = X.from, xend = X.to, y = Y.from, yend = Y.to, size = Downstream_total, color = BAPS3), curvature = 0.15, arrow = arrow(length = unit(0.01, "npc"), type="closed"), position = position_jitter(width = 1, height = 1))  +
+  geom_curve( data = bd1[which((bd1$Country == "Kenya" & bd1$Downstream_total < 100)| bd1$BAPS1 == "BD2"),], aes(x = X.from, xend = X.to, y = Y.from, yend = Y.to, size = Downstream_total, color = BAPS3), curvature = 0.15, arrow = arrow(length = unit(0.01, "npc"), type="closed"), position = position_jitter(width = 1, height = 1)) +
+  guides(colour = guide_legend(ncol = 3), size = guide_legend(ncol = 1)) # + geom_text(data = bd1, aes(label = floor(as.numeric(numeric.date)), x = X.to, y = Y.to), position = position_jitter(width = 1, height = 1))
+
+ggsave("Figure 2b World map arrows.svg", width = 7, height = 9)
+
+
+bd1 = export[which(export$BAPS1 %in% c("BD1", "BD2")),]
+bd1 = bd1[grep("BD1|BD2", bd1$BAPS3),]
+bd1 = bd1[which(bd1$parentcountry %in% se & bd1$Country %in% se),]
+events = global_tree$data
+events = events[order(events$numeric.date),]
+events = events[which(!is.na(events$numeric.date)),]
+events = events[which(events$numeric.date != "--"),]
+events = rbind(events[which(events$PLE == "PLE1" & events$BAPS1 == "BD2"),][1,],events[which(events$PLE == "PLE11" & events$BAPS1 == "BD1"),][1,],events[which(events$ctxB == "ctxB7" & events$BAPS1 == "BD1"),][1,])
+events = merge(events, countries, by.x = "Country", by.y = "Location")
+events$Label = c("+PLE1", "+PLE11", "+ctxB7")
+events$Label = paste0(events$Label,"\n", floor(as.numeric(events$numeric.date)))
+bd1[which(bd1$BAPS1 == "BD1"),"BAPS3"] = paste0(" s", bd1[which(bd1$BAPS1 == "BD1"),"BAPS3"] )
+
+
+ggplot(world) + geom_sf(fill= "grey", color = NA) + theme_void() + theme(text = element_text(size = 14), legend.position = "bottom") +
+  geom_curve(alpha = 0, data = bd1, aes(x = X.from, xend = X.to, y = Y.from, yend = Y.to, size = Downstream_total, color = BAPS3), curvature = 0.15, arrow = arrow(
+    length = unit(0.01, "npc"), 
+    type="closed" # Describes arrow head (open or closed)
+  ), position = position_jitter(width = 1 ,height = 1))  + scale_size(range = c(0, 4)) + scale_color_manual(values = colors[which(colors$BAPS3 %in% bd1$BAPS3),"col"])  + xlim(65,95) + ylim(5,33)  + labs(size = "No. samples descended\nfrom export event", color = "Sub-lineage")+
+  geom_curve(data = bd1, aes(x = X.from, xend = X.to, y = Y.from, yend = Y.to, size = Downstream_total, color = BAPS3), curvature = 0.15, arrow = arrow(length = unit(0.01, "npc"), type="closed"), position = position_jitter(width = 1 ,height = 1)) +
+  guides(colour = guide_legend(ncol = 3), size = guide_legend(ncol = 1), fill = F)+ scale_fill_manual(values = colors[which(colors$BAPS3 %in% events$BAPS3),"col"]) # + geom_label_repel(data = events, aes(x = X, y = Y, label = Label, fill = BAPS3), size = 5)  
+ggsave("Figure 2c South Asia.svg", width = 7, height = 9)
+
+ggplot(world)+ theme_void() + theme(text = element_text(size = 14), legend.position = "bottom") +
+  geom_curve(data = bd1, aes(x = X.from, xend = X.to, y = Y.from, yend = Y.to, size = Downstream_total, color = BAPS3), curvature = 0.15, arrow = arrow(
+    length = unit(0.01, "npc"), 
+    type="closed" # Describes arrow head (open or closed)
+  ), position = position_jitter(width = 1 ,height = 1))  + scale_linewidth(range = c(0, 4)) + scale_color_manual(values = colors[which(colors$BAPS3 %in% bd1$BAPS3),"col"])  + xlim(60,100) + ylim(10,40)  + labs(size = "No. samples descended\nfrom export event", color = "Sublineage")
+ggsave("Figure 2c South Asia.svg", width = 7, height = 7)
+
+
+#### MGEs comparison ####
+MGE = global
+MGE$MGE_Replacement = ""
+for(i in c("VC_0490.assembled", "VC_0491.assembled", "VC_0492.assembled")){
+MGE[which(MGE[,i] == "yes"),"MGE_Replacement"] = paste(MGE[which(MGE[,i] == "yes"),"MGE_Replacement"],  gsub("_", "", gsub(".assembled","", i)))
+}
+MGE$Year = as.numeric(as.character(MGE$Year))
+MGE$Location = MGE$Subregion
+MGE[which(MGE$Country %in% c("Bangladesh", "India", "Democratic Republic of the Congo", "Mexico")),"Location"] = MGE[which(MGE$Country %in% c("Bangladesh", "India", "Democratic Republic of the Congo", "Mexico")),"Country"]
+other = names(which(table(MGE$MGE_Replacement ) < 20))
+MGE[which(MGE$MGE_Replacement %in% other),"MGE_Replacement"] = "Other"
+MGE = MGE[-which(MGE$Location %in% c("Europe", "Oceania", "South America", "Unknown", "Eastern Asia", "Southeast Asia")),]
+MGE$Location = gsub("Democratic Republic of the Congo", "DRC", MGE$Location)
+MGE$PLE = factor(MGE$PLE, levels = c("None", paste0("PLE", 1:11)))
+MGE$MGE_Replacement = gsub(" VC0490 VC0491 VC0492", "DdmABC", MGE$MGE_Replacement) %>% gsub(" VC0491 VC0492" , "DdmAB", .) %>% gsub(" VC0492"  , "DdmA", .)
+MGE$MGE_Replacement[which(MGE$MGE_Replacement == "")] = "None"
+MGE[grep("yes", MGE$VC_0258.assembled),"Ogawa"] = "Present"
+MGE[which(MGE$VC_0258.assembled %in% c("partial", "fragmented", "disrupted")),"Ogawa"] = "Partial/disrupted/fragmented"
+MGE[which(MGE$VC_0258.assembled %in% c("interrupted")),"Ogawa"] = "Interrupted"
+MGE[which(MGE$VC_0258.assembled == "no"),"Ogawa"] = "Not present"
+
+
+a = ggplot(MGE, aes(x = Year, point_color = PLE, fill =PLE, color = MGE_Replacement)) + 
+  facet_wrap(~Location, scale = "free_y", nrow = 2)+
+  geom_bar(stat = "count", color = "black") + 
+  theme_bw() + xlim(2003,2023) + scale_fill_manual(values = c("white", brewer.pal(10, "Spectral")[c(1:4,9:10)])) + labs(y = "Frequency") + ggtitle("PLEs") + theme(legend.title = element_blank(), legend.position = "bottom") + guides(fill=guide_legend(nrow =1 ))
+
+b = ggplot(MGE, aes(x = Year, point_color = MGE_Replacement, fill =MGE_Replacement, color = MGE_Replacement)) + 
+  facet_wrap(~Location, scale = "free_y", nrow = 2)+
+  geom_bar(stat = "count", color = "black") + 
+  theme_bw() + xlim(2003,2023) + scale_fill_manual(values = c(brewer.pal(3, "GnBu"),"white", "grey")) + ggtitle("DdmABC") + theme(legend.title = element_blank(), legend.position = "bottom")+ labs(y = "Frequency")
+
+c = ggplot(MGE, aes(x = Year, point_color = Ogawa, fill =Ogawa, color = MGE_Replacement)) + facet_wrap(~Location, scale = "free_y", nrow = 2)+
+  geom_bar(stat = "count", color = "black") + 
+  theme_bw() + xlim(2003,2023) + scale_fill_manual(values = c( c("grey95","white", "grey85", brewer.pal(8, "Dark2")[1])))+ ggtitle("wbeT (VC0258)") + theme(legend.title = element_blank(), legend.position = "bottom")+ labs(y = "Frequency")
+
+
+g = arrangeGrob(a, b, c, ncol = 1)
+ggsave("Figure S8 PLE dynamics.svg", g, height = 10, width = 10)
+
+
+
+
+
+
+#### Section 3- Association with phenotype ####
+#### Severity ####
+#With diarrhoea and dehydration
+#severity = rbind.fill(exclude, global)
+
+severity = global[which(global$Country == "Bangladesh" & global$Year > 2013 & !is.na(global$DecimalDate) & !is.na(global$BAPS3) & global$BAPS1 %in% c("BD2", "BD1")),c("DecimalDate","BAPS3", "VC_0258.assembled", "Superintegron","Percent_ICP1", "Plasmid", "VSP_II", "KappaPhage", "Dehydration", "Stool.Nature", "SXT", "PLE", "BAPS1", "Site", "Division", "VC_A0219.assembled", "cas1.assembled", "odn.assembled", "SXT_phenotype", "DO_phenotype", "TE_phenotype", "VC_0490.assembled", "VC_0491.assembled", "VC_0492.assembled", "VC_A0455.assembled")] 
+
+#Convert to binary. ICP1 did not come up as significant due to excluded samples. Could change exclusion criteria
+severity$SevereDehydration =  as.numeric(severity$Dehydration == "Severe")
+severity$Ricewaterstool =  as.numeric(severity$Stool.Nature == "Rice watery")
+severity$BD1 = as.numeric(severity$BAPS1 == "BD1")
+severity$DdmB = as.numeric(severity$VC_0491.assembled == "yes")
+severity$DdmA = as.numeric(severity$VC_0492.assembled == "yes")
+severity$pSA7G1 = as.numeric(severity$Plasmid == "pSA7G1")
+#severity$ICP1 = as.numeric(severity$Percent_ICP1 > 0)
+severity$hlyA = 0
+severity[grep("yes", severity$VC_A0219.assembled),"hlyA"] = 1
+table(severity$VC_A0455)
+severity$VCA0455 = 0
+severity$VCA0455[grep("yes", severity$VC_A0455.assembled)] = 1
+severity$ICETET = as.numeric(severity$SXT == "ICE-TET")
+severity$PLE1 = as.numeric(severity$PLE == "PLE1")
+severity$PLE11 = as.numeric(severity$PLE == "PLE11")
+severity$pSA7G1 = as.numeric(severity$Plasmid == "pSA7G1")
+severity$K139 = as.numeric(severity$KappaPhage == "Yes")
+severity$wbeT = 0
+severity[grep("yes", severity$VC_0258.assembled),"wbeT"] = 1
+
+#Which to adjust for?
+pvalue_summary = as.data.frame(matrix(ncol = 7, nrow = 0))
+colnames(pvalue_summary) = c("Outcome", "Control", "Factor",  "Estimate" ,  "Std. Error", "z value" ,   "Pr(>|z|)")
+
+for(outcome in c("Ricewaterstool", "SevereDehydration")){
+  for(control in c("BAPS3 + Date + Site", "Date + Site", "Site", "Date", "None")){
+    subset = severity[,c(outcome, "hlyA","VCA0455","ICETET","PLE1","PLE11","pSA7G1","K139","wbeT","BD1","DdmB","DdmA")]
+    
+    if(length(grep("BAPS3", control))==1){subset$BAPS1 = severity$BAPS3}
+    if(length(grep("Date", control))==1){subset$Date = severity$DecimalDate}
+    if(length(grep("Site", control))==1){subset$Site = severity$Site}
+    colnames(subset)[1] = "outcome"
+    de =glm(outcome ~., family = "binomial", data = subset)
+    de = as.data.frame(summary(de)$coefficients)
+    de$Factor = rownames(de)
+    rownames(de) = 1:nrow(de)
+    de$Outcome = outcome
+    de$Control = control
+    de = de[,c("Outcome", "Control", "Factor",  "Estimate" ,  "Std. Error", "z value" ,   "Pr(>|z|)")]
+    pvalue_summary = rbind(pvalue_summary, de)
+  }}
+pvalue_summary = pvalue_summary[order(pvalue_summary$Control, pvalue_summary$Outcome),]
+#View(pvalue_summary[which( pvalue_summary$`Pr(>|z|)` < 0.05),])
+
+ggplot(pvalue_summary[-grep("Site|BAPS1|Intercept", pvalue_summary$Factor),], aes(x = Control, y = Estimate, color = `Pr(>|z|)` < 0.05)) + geom_point() + coord_flip() + facet_wrap(~Factor, scale = "free_x")
+
+#Run analysis controlling for date and site
+logreg = as.data.frame(matrix(ncol = 6, nrow = 0))
+colnames(logreg) = c("Outcome","Factor", "pvalue", "OR", "UL", "LL")
+#Only one without DdmB- remove
+for(outcome in c("Ricewaterstool", "SevereDehydration")){
+  subset = severity[,c(outcome, "hlyA","VCA0455","ICETET","PLE1","PLE11","pSA7G1","K139","wbeT","BD1","DdmB","DdmA","DecimalDate", "Site")]
+  
+  colnames(subset)[1] = "outcome"
+  de =glm(outcome ~., family = "binomial", data = subset)
+  
+  df = data.frame(Factor = row.names(summary(de)$coefficients), pvalue = summary(de)$coefficients[,"Pr(>|z|)"], estimate = summary(de)$coefficients[,"Estimate"])
+  conf = confint(de)
+  
+  df = merge(df, conf, by = "row.names")
+  
+  df$OR = exp(df$estimate)
+  df$UL = exp(df$`97.5 %`)
+  df$LL = exp(df$`2.5 %`)
+  df$Outcome = outcome
+  df = df[,c("Outcome","Factor", "pvalue", "OR", "UL", "LL")]
+  logreg = rbind(logreg, df)
+  
+}
+
+logreg = logreg[-grep("Site|Intercept", logreg$Factor),]
+logreg$Factor = gsub("yes", "", logreg$Factor, ignore.case = T) %>% gsub("PLEPLE", "PLE", .) %>% gsub("[.]y", "", .) %>% gsub("SXT", "ICE-TET", .) %>% gsub("BAPS1", "", .) %>% gsub("Decimal", "", .)  %>% gsub("KappaPhage", "K139", .)
+
+logreg$Outcome = gsub( "Dehydration", "Severe dehydration", logreg$Outcome) %>% gsub("Stool.Nature", "Rice water stool", .)
+
+logreg$Factor[which(logreg$Factor == "DdmA")] = "DdmA (VC0492)"
+logreg$Factor[which(logreg$Factor == "DdmB")] = "DdmB (VC0491)"
+logreg$Factor[which(logreg$Factor == "hlyA")] = "hlyA (VCA0219)"
+logreg$Factor[which(logreg$Factor == "wbeT")] = "wbeT (VC0258)"
+logreg$Outcome = gsub("Ricewaterstool", "Rice water stool", logreg$Outcome )
+logreg$Outcome = gsub("SevereSevere dehydration","Severe dehydration", logreg$Outcome )
+
+ggplot(logreg, aes(x = log(OR), y = Factor, fill = Outcome))  + 
+  geom_vline(xintercept = 0, color = "grey20", linetype = "dotted") + 
+  geom_errorbar(aes(xmin = log(LL), xmax = log(UL)), width = 0.2, position=position_dodge(width = 0.7), color = "black") + 
+  geom_point(position=position_dodge(width = 0.7), size = 3, shape = 21, colour = "black", aes(fill = Outcome)) + 
+  theme_bw() + scale_fill_brewer() + labs(x = "log(Odds ratio)") + scale_fill_manual(values = c("#1B998B", "#C5D86D")) +
+  theme(legend.position = "bottom", text = element_text(size = 14), panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank(), axis.title.y = element_blank(),  panel.border = element_rect(fill = NA)) +
+  annotate(geom = "label", y = 13, x = -2.5, label = "Reduced risk", fill = "grey") +
+  annotate(geom = "label", y = 13, x = 2.5, label = "Increased risk", fill = "grey") +
+  annotate(geom = "point", y = 13.6, x = 0, color = NA) + labs(fill = "Symptom")
+
+ggsave("Figure 3 Regression.svg", height = 8, width = 5)
+
+
+
+#### ICP1 switch ####
+load(file = "Cholera.Rdata")
+colnames(exclude) = gsub("Country.clean", "Country", colnames(exclude))
+icp1 = rbind.fill(global, exclude)
+icp1 = icp1[which(icp1$Country == "Bangladesh" & icp1$Year >= 2013 & icp1$Percent_ICP1 > 0.1),]
+#VC_A0219 = haemolysin
+#VC_0841 = acfC
+icp1[which(icp1$ctxB_type == "ctxB1"),"BAPS1"] = "BD2"
+icp1[which(icp1$ctxB_type == "ctxB7"),"BAPS1"] = "BD1"
+#Other one is non-7PET
+icp1[which(is.na(icp1$BAPS1)),]
+
+icp1 = icp1[which(!is.na(icp1$BAPS1)),c("cas1.assembled","odn.assembled","cas3.assembled",colnames(icp1)[grep("csy.*assembled", colnames(icp1))],"SXT","Percent_ICP1", "Year", "BAPS1")]
+
+icp1[which(icp1$cas1.assembled %in% c("yes", "partial")), "Anti"] = "CRISPR"
+icp1[which(icp1$odn.assembled %in% c("yes", "yes_nonunique")), "Anti"] = "Odn"
+icp1[which(icp1$odn == "no" & icp1$cas1 == "no"), "Anti"] = "None detected"
+icp1$SXT = gsub("SXT_ICE_GEN_KY382507", "ICE-GEN", icp1$SXT)
+icp1$SXT = gsub("SXT_ICE_TET_MK165649", "ICE-TET", icp1$SXT)
+icp1$SXT  = factor(icp1$SXT, levels = c("ICE-TET", "None", "ICE-GEN"))
+icp1$Anti = factor(icp1$Anti, levels = c("None detected", "CRISPR", "Odn"))
+icp1$Year= factor(icp1$Year, levels = 2014:2022)
+
+icp1$BAPS1 = gsub("BD1", "sBD1", icp1$BAPS1)
+
+ggplot(icp1, aes(x = BAPS1, fill = Anti)) + geom_bar(stat = "count", color = "black") + theme_minimal() + scale_fill_manual(values = c("white", brewer.pal(3,"RdPu")[2:3])) + theme(panel.grid = element_blank(), panel.border = element_rect(fill = NA)) + labs(x = "SXT-ICE", y = "Frequency", fill = "Anti-defence system")  + theme(legend.position = "bottom") + ylim(0,13)
+
+ggsave("Figure 3 ICP1 switch.svg", height = 3, width = 3)
+
+ggplot(icp1, aes(x = Year, fill = Anti)) + geom_bar(stat = "count", color = "black") + theme_minimal() + scale_fill_manual(values = c("white", brewer.pal(3,"RdPu")[2:3])) + theme(panel.grid = element_blank(), panel.border = element_rect(fill = NA)) + labs(x = "Year", y = "Frequency", fill = "Anti-defence system")  + theme(legend.position = "bottom")+ ylim(0,13) +scale_x_discrete(drop = F)
+
+ggsave("Figure 3 ICP1 switch b.svg", height = 3, width = 3)
+
+
+
+#### ICP1 switch- all data ####
+load(file = "Cholera.Rdata")
+colnames(exclude) = gsub("Country.clean", "Country", colnames(exclude))
+icp1 = rbind.fill(global, exclude)
+icp1 = icp1[which(icp1$Percent_ICP1 > 0.1),c("cas1.assembled","odn.assembled","cas3.assembled",colnames(icp1)[grep("csy.*assembled", colnames(icp1))],"SXT","Percent_ICP1", "Country")]
+
+
+icp1[which(icp1$cas1.assembled %in% c("yes", "partial")), "Anti"] = "CRISPR"
+icp1[which(icp1$odn.assembled %in% c("yes", "yes_nonunique")), "Anti"] = "Odn"
+icp1[which(icp1$odn == "no" & icp1$cas1 == "no"), "Anti"] = "None detected"
+icp1$SXT = gsub("SXT_ICE_GEN_KY382507", "ICE-GEN", icp1$SXT)
+icp1$SXT = gsub("SXT_ICE_TET_MK165649", "ICE-TET", icp1$SXT)
+icp1[which(icp1$odn.assembled == "interrupted"),"Anti"] = "Odn (interrupted)"
+icp1$SXT  = factor(icp1$SXT, levels = c("ICE-TET", "None", "ICE-GEN"))
+icp1$Anti = factor(icp1$Anti, levels = c("None detected", "CRISPR", "Odn", "Odn (interrupted)"))
+
+ggplot(icp1, aes(x = SXT, fill = Anti)) + geom_bar(stat = "count", color = "black") + theme_minimal() + scale_fill_manual(values = (brewer.pal(4,"RdPu"))) + theme(panel.grid = element_blank(), panel.border = element_rect(fill = NA)) + labs(x = "SXT-ICE", y = "Frequency", fill = "Anti-defence system") + facet_wrap(~Country)
+
+ggsave("Figure S10 ICP1 switch international.svg", height = 4, width = 10)
+
+
+#### Antibiotic resistance ####
+#SXT and ab resistance
+global[which(global$SXT == "No"), "SXT"]= "None"
+x = as.data.frame(table(global[which(global$Year > 2013 & global$Country == "Bangladesh" & !is.na(global$SXT_phenotype)),c("SXT","SXT_phenotype")]))
+x$Ab = "SXT"
+colnames(x)[2] = "Resistance"
+y = as.data.frame(table(global[which(global$Year > 2013 & global$Country == "Bangladesh"  & !is.na(global$TE_phenotype)),c("SXT","TE_phenotype")]))
+y$Ab = "Tetracycline"
+colnames(y)[2] = "Resistance"
+z = as.data.frame(table(global[which(global$Year > 2013 & global$Country == "Bangladesh" & !is.na(global$DO_phenotype)),c("SXT","DO_phenotype")]))
+z$Ab = "Doxycycline"
+colnames(z)[2] = "Resistance"
+ab = rbind(x, y, z)
+ab$SXT  = factor(ab$SXT, levels = c("ICE-TET", "ICE-GEN", "None"))
+ab$Resistance = gsub("R", "Resistant", ab$Resistance) %>% gsub("S", "Susceptible", .) %>% gsub("I", "Intermediate", .) %>% factor(., levels = c("Resistant", "Intermediate", "Susceptible"))
+ab$Ab = factor(ab$Ab, levels = c("SXT", "Tetracycline", "Doxycycline"))
+for(i in unique(ab$SXT)){
+  for(j in unique(ab$Ab)){
+    ab[which(ab$Ab == j & ab$SXT == i),"Percent"] = 100*ab[which(ab$Ab == j & ab$SXT == i),"Freq"]/sum(ab[which(ab$Ab == j & ab$SXT == i),"Freq"])
+  }}
+ab=ab[-which(ab$Percent == 0),]
+
+
+ab$p = NA
+for(comparison in c("ICE-GEN", "None")){
+  if(length(unique(global[which(global$Year > 2013 & global$Country == "Bangladesh" & !is.na(global$SXT_phenotype) & global$SXT %in% c("ICE-TET", comparison)),c("SXT")])) > 1){
+  ab[which(ab$SXT == comparison & ab$Ab == "SXT"),"p"][1] = fisher.test(table(global[which(global$Year > 2013 & global$Country == "Bangladesh" & !is.na(global$SXT_phenotype) & global$SXT %in% c("ICE-TET", comparison)),c("SXT","SXT_phenotype")]))$p.value}
+  
+  if(length(unique(global[which(global$Year > 2013 & global$Country == "Bangladesh" & !is.na(global$TE_phenotype) & global$SXT %in% c("ICE-TET", comparison)),c("SXT")])) > 1){ 
+  ab[which(ab$SXT == comparison & ab$Ab == "Tetracycline"),"p"][1] = fisher.test(table(global[which(global$Year > 2013 & global$Country == "Bangladesh" & !is.na(global$TE_phenotype) & global$SXT %in% c("ICE-TET", comparison)),c("SXT","TE_phenotype")]))$p.value}
+  
+  if(length(unique(global[which(global$Year > 2013 & global$Country == "Bangladesh" & !is.na(global$DO_phenotype) & global$SXT %in% c("ICE-TET", comparison)),c("SXT")])) > 1){ 
+  ab[which(ab$SXT == comparison & ab$Ab == "Doxycycline"),"p"][1] = fisher.test(table(global[which(global$Year > 2013 & global$Country == "Bangladesh" & !is.na(global$DO_phenotype) & global$SXT %in% c("ICE-TET", comparison)),c("SXT","DO_phenotype")]))$p.value
+  }
+  }
+
+
+ab$label_y = 106
+ab[which(ab$SXT == "ICE-GEN"), "label_y"] = 114
+ab$label_x = 1.5
+ab[which(ab$SXT == "ICE-GEN"), "label_x"] = 2
+ab$SXT = factor(ab$SXT, levels = c("ICE-TET", "None", "ICE-GEN"))
+ab$Ab = gsub("SXT", "Trimethoprim/sulfamethoxazole", ab$Ab)
+
+ggplot(ab, aes(x = SXT, y = Percent, fill = Resistance)) + geom_bar(stat = "identity", color = "black") + facet_wrap(~Ab) + 
+  theme_bw() + 
+  scale_fill_manual(values = colorRampPalette(c("#1B998B", "white"))(3)) + 
+  theme(text = element_text(size = 14), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.text_phenotype = element_text(angle = 90)) + 
+  geom_text(aes(label = Freq), position = position_stack(vjust = 0.6), color = "black") + labs(y = "%", x = "SXT-ICE") + annotate(geom = "segment", x = 1, xend = 2, y = 102, yend = 102) + 
+  geom_text(aes(label = Freq), position = position_stack(vjust = 0.6), color = "black") + labs(y = "%", x = "SXT-ICE") + annotate(geom = "segment", x = 1, xend = 3, y = 110, yend = 110) +
+  geom_text(aes(label = signif(p, 2), x= label_x, y = label_y))
+
+ggsave("Figure 3a Antibiotics.svg", height =3, width = 10)
+
+
+
+
+
+
+#### K139 ####
+subset = severity[which(severity$BAPS1 == "BD2"),c(outcome, "hlyA","VCA0455","ICETET","PLE1","PLE11","pSA7G1","K139","wbeT","DdmB","DdmA","DecimalDate", "Site")]
+summary(glm(K139 ~., family = "binomial", data = subset))
+#summary(glm(pSA7G1 ~., family = "binomial", data = subset))
+
+#study  = global[which(global$Year > 2013 & global$Country == "Bangladesh"),]
+study = global[which(global$BAPS1 %in% c("BD1", "BD2") & global$Country == "Bangladesh"),]
+study$MGE_Replacement = "WT"
+study[grep("K147fs", study$VC_0490.var),"MGE_Replacement"] = "VC0490-K147fs"
+study[grep("VC_0491-ins", study$VSP_II),"MGE_Replacement"] = paste(study[grep("VC_0491-ins", study$VSP_II),"MGE_Replacement"], "VC0491-ins")
+study[grep("VC_0491-VC_0498", study$VSP_II),"MGE_Replacement"] = paste(study[grep("VC_0491-VC_0498", study$VSP_II),"MGE_Replacement"], "ΔVC0491-VC0494")
+table(study[which(study$BAPS1 == "BD2"),"MGE_Replacement"])
+ggplot(study, aes(x = MGE_Replacement, fill = KappaPhage)) + geom_bar(stat = "count", position = "fill") + facet_wrap(~BAPS1)
+
+k = table(study[which(study$Year > 2013 & study$Country == "Bangladesh"),c("MGE_Replacement", "KappaPhage")])
+k
+k_percent = data.frame(DdmABC = rownames(k),percent = 100*k[,"Yes"]/(k[,"Yes"]+k[,"None"]))
+k_percent$Proportion = paste(k[,2], k[,1]+k[,2], sep = "/")
+k_percent = k_percent[which((k_percent$DdmABC != "NA")),]
+#Hypothesis- became ineffective against phage so deleted?
+k_percent$DdmABC = gsub("VC0490", "DdmC", k_percent$DdmABC) %>% gsub("VC0491", "DdmB", .)
+k_percent$DdmABC  = gsub("DdmC-K147fs ΔDdmB-VC0494", "DdmC-K147fs ΔDdmAB", k_percent$DdmABC)
+
+
+ggplot(k_percent, aes(x = DdmABC, y = percent, color = percent == 0)) + 
+  geom_bar(stat = "identity", fill = "#1B998B") + 
+  theme_minimal() + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), text = element_text(size = 14), panel.border = element_rect(fill = NA)) + 
+  labs(y = "% with K139") + 
+  geom_text(aes(label = Proportion), position = position_stack(vjust = 0.6), color = "black") +
+  scale_color_manual(values = c("black", "white")) +
+  theme(legend.position = "none") +
+  annotate(geom = "segment", x = 1.1, xend = 1.9, y = 70.5, yend = 70.5) +
+  annotate(geom = "segment", x = 2.1, xend = 2.9, y = 20, yend = 20) + 
+  annotate(geom = "text", x = mean(c(1.1,1.9)), y = 72.4, label = expression(paste("3.3x", 10^-6))) + 
+  annotate(geom = "text", x = mean(c(2.1,2.9)), y = 22, label = 0.01)
+
+ggsave("Figure S3 K139.svg", height = 3, width = 5)
+
+
+#### Microbiome ####
+#Supp figures microbiome
+load(file = "microbiome.Rdata")
+summary = summary[which(summary$State != "Control"),]
+summary$VCholerae_Percent
+
+summary$Category = NA
+summary[which(summary$ctxB_type ==  "ctxB7"),"Category"] = "ctxB7 (BD1)"
+summary[which(summary$ctxB_type ==  "ctxB1" & summary$SXT == "ICE-TET"),"Category"] = "ctxB1+ (BD2) ICE-TET+"
+summary[which(summary$ctxB_type ==  "ctxB1" & summary$SXT == "None"),"Category"] = "ctxB1+ (BD2) ICE-TET-"
+summary[which(summary$ctxB_type ==  "ctxB1" & summary$PLE1 == "yes" & summary$SXT == "ICE-TET"),"Category"] = "ctxB1+ (BD2) PLE1+ ICE-TET+"
+
+table(summary$Category)
+summary$coverage
+summary$ICP1_Present = gsub("TRUE", "ICP1 present", summary$ICP1_Present)
+summary$ICP1_Present = gsub("FALSE", "ICP1 absent", summary$ICP1_Present)
+
+
+summary$Category = factor(summary$Category, levels = c("ctxB1+ (BD2) PLE1+ ICE-TET+", "ctxB1+ (BD2) ICE-TET+", "ctxB1+ (BD2) ICE-TET-", "ctxB7 (BD1)" ))
+colnames(summary)
+
+
+med = function(x){median(x, na.rm = T)}
+summary = summary[which(!is.na(summary$ICP1_Present) & !is.na(summary$Category) & !is.na(summary$VCholerae_Percent)),]
+summary$Group = paste(summary$ICP1_Present, summary$Category)
+aggregate(summary$VCholerae_Percent, by = list(c(summary$Group)), FUN = med)
+
+#ICE-TET loss
+wilcox.test(summary[which(summary$Category == "ctxB1+ (BD2) ICE-TET+"),"VCholerae_Percent"], summary[which(summary$Category == "ctxB1+ (BD2) ICE-TET-" ),"VCholerae_Percent"])
+
+#ICE-TET loss- no ICP1
+wilcox.test(summary[which(summary$Category %in% c("ctxB1+ (BD2) PLE1+ ICE-TET+", "ctxB1+ (BD2) ICE-TET+") & summary$ICP1_Present == "ICP1 absent"),"VCholerae_Percent"], summary[which(summary$Category %in% c("ctxB1+ (BD2) ICE-TET-") & summary$ICP1_Present == "ICP1 absent"),"VCholerae_Percent"])$p.value
+
+#ICE-TET loss- ICP1
+wilcox.test(summary[which(summary$Category == "ctxB1+ (BD2) ICE-TET-" & summary$ICP1_Present == "ICP1 present"),"VCholerae_Percent"], summary[which(summary$Category == "ctxB1+ (BD2) ICE-TET+" & summary$ICP1_Present == "ICP1 present"),"VCholerae_Percent"])$p.value
+
+#PLE1- no ICP1
+wilcox.test(summary[which(summary$Category == "ctxB1+ (BD2) PLE1+ ICE-TET+" & summary$ICP1_Present == "ICP1 absent"),"VCholerae_Percent"], summary[which(summary$Category %in% c("ctxB1+ (BD2) ICE-TET+", "ctxB1+ (BD2) ICE-TET-") & summary$ICP1_Present == "ICP1 absent"),"VCholerae_Percent"])
+
+library(ggplot2)
+ggplot(summary[which(!is.na(summary$Category)),], aes(x =Category, y = VCholerae_Percent, fill = Category)) + geom_boxplot(outlier.shape = NA) +  
+  geom_jitter(width = 0.2, shape = 21, size = 3) + 
+  theme_bw()+
+  theme(text = element_text(size = 14), panel.grid = element_blank(), panel.grid.minor.x = element_blank()) + labs(x = "SXT-ICE", y = "% V. cholerae reads")  + 
+  facet_wrap(~ICP1_Present, ncol = 2)+ 
+  scale_fill_manual(values = c(brewer.pal(9,"Spectral")[4:8], "grey90", "white")) + guides(fill = F) + ylim(0,110)
+
+supp = summary[which(!is.na(summary$Category)),]
+colnames(supp)
+supp = supp[,c("Run","Study","ctxB_type","PLE1", "SXT","VCholerae_Percent", "ICP1_Percent","Category", "Group")]
+supp$Study = gsub("Madi et al. 2023, bioRxiv", "Madi et al. 2024, Science", supp$Study)
+colnames(supp)[c(1,8,9)] = c("ENA_id", "Category1", "Category2")
+write.csv(supp, file = "SupplementaryDocument5.csv", row.names = F)
+
+ggsave(file = "GutMicrobiome.svg", height = 3, width = 6)
+
+#### ICP1 specificity in microbiome ####
+icp1type$p = NA
+icp1type$ICP1_Present
+icp1type$SXT
+icp1type$Type = gsub("cas1", "CRISPR", icp1type$Type)
+
+icp1type[which(icp1type$ICP1_Present == T & icp1type$Type == "CRISPR" & icp1type$SXT== "ICE-TET"),"p"][1] = wilcox.test(icp1type[which(icp1type$ICP1_Present == T & icp1type$Type == "CRISPR" & icp1type$SXT== "ICE-GEN"),"Ratio"], icp1type[which(icp1type$ICP1_Present == T & icp1type$Type == "CRISPR" & icp1type$SXT== "ICE-TET"),"Ratio"])$p.value
+
+icp1type[which(icp1type$ICP1_Present == T & icp1type$Type == "CRISPR" & icp1type$SXT== "None"),"p"][1] = wilcox.test(icp1type[which(icp1type$ICP1_Present == T & icp1type$Type == "CRISPR" & icp1type$SXT== "ICE-GEN"),"Ratio"], icp1type[which(icp1type$ICP1_Present == T & icp1type$Type == "CRISPR" & icp1type$SXT== "None"),"Ratio"])$p.value
+
+icp1type[which(icp1type$ICP1_Present == T & icp1type$Type == "odn" & icp1type$SXT== "None"),"p"][1] = wilcox.test(icp1type[which(icp1type$ICP1_Present == T & icp1type$Type == "odn" & icp1type$SXT== "ICE-GEN"),"Ratio"], icp1type[which(icp1type$ICP1_Present == T & icp1type$Type == "odn" & icp1type$SXT== "None"),"Ratio"])$p.value
+
+
+icp1type[which(!is.na(icp1type$p) & icp1type$SXT == "ICE-TET"),"p_y"] = 8.5
+icp1type[which(!is.na(icp1type$p) & icp1type$SXT == "None"),"p_y"] = 8
+
+ggplot(icp1type[which(icp1type$ICP1_Present == T & icp1type$Type %in% c("CRISPR", "odn") & icp1type$SXT %in% c("ICE-GEN", "ICE-TET", "None")),], aes(x = SXT, y = log(Ratio), fill = SXT)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  facet_wrap(~Type) + 
+  geom_jitter(width = 0.2, shape = 21, size = 3) + 
+  theme_bw()+
+  theme(text = element_text(size = 14), panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank(), panel.border = element_blank()) + labs(x = "SXT-ICE", y = "log(V. cholerae/ICP1 reads)") + 
+  scale_fill_manual(values = c(brewer.pal(9, "Set2")[2:3], "white")) + guides(fill = F) + 
+  annotate(geom = "segment", x = 1, xend = 2, y = 8, yend = 8) +
+  annotate(geom = "segment", x = 1, xend = 3, y = 7.5, yend = 7.5) +
+  geom_text(aes(label = signif(p, 2), y = p_y), nudge_x = -0.5)
+
+ggsave("FigureS Microbiome ICE.png",  width = 5, height = 4)
+
+
+
+#### PLE under-represented ####
+
+#Bangladesh 2003 onwards
+total = as.data.frame(table(global[which(global$Country == "Bangladesh" & global$Year >= 2003),"PLE"]))
+colnames(total) = c("PLE", "Freq")
+total$Category = "Total"
+#Export events
+bd = export[which(export$parentcountry == "Bangladesh" & export$numeric.date >= 2003),]
+export_events = as.data.frame(table(bd$PLE))
+colnames(export_events) = c("PLE", "Freq")
+export_events$Category = "Export events"
+#Downstream samples
+downstream = aggregate(bd$Downstream_total, by = list(c(PLE = bd$PLE)), FUN = sum)
+colnames(downstream ) = c("PLE", "Freq")
+downstream$Category = "Samples descended from export events"
+#Together
+PLE_export = rbind(total, export_events, downstream)
+rm(total, export_events, downstream)
+PLE_export$PLE =factor(PLE_export$PLE, levels = c("None", paste0("PLE", 1:11)))
+PLE_export$Category = factor(PLE_export$Category , levels = c("Total", "Export events", "Samples descended from export events"))
+
+fisher = PLE_export
+fisher$PLE = as.character(fisher$PLE)
+for(i in unique(fisher$Category)){
+  fisher[which(fisher$Category == i & fisher$PLE %in% paste0("PLE", 1:11)),"Freq"] = sum(fisher[which(fisher$Category == i & fisher$PLE %in% paste0("PLE", 1:11)),"Freq"])
+fisher[which(fisher$Category == i & fisher$PLE %in% paste0("PLE", 1:11)),"PLE"] = "PLE"}
+fisher = unique(fisher)
+fisher = fisher[,c("PLE", "Category", "Freq")]
+fisher = dcast(fisher, Category~PLE, value.var = "Freq")
+fisher
+fisher.test(as.matrix(fisher[1:2,2:3]))$p.value
+fisher.test(as.matrix(fisher[c(1,3),2:3]), simulate.p.value = T)$p.value
+fisher.test(as.matrix(fisher[c(2,3),2:3]))$p.value
+
+a = ggplot(PLE_export, aes(x = Category, fill = PLE, y = Freq)) + 
+  geom_bar(stat = "identity", position = "fill", color = "black") + 
+  scale_fill_manual(values = c("white", brewer.pal(11, "Spectral")[c(1:4, 9:11)])) +
+  geom_text(aes(label = Freq),  position = position_fill(vjust = 0.5)) +
+  theme(panel.grid = element_blank(), panel.background = element_blank(), panel.border = element_rect(fill = NA), legend.position = "bottom") +
+  labs(y = "Proportion", x = "Population") + guides(fill=guide_legend(nrow = 2))
+
+#wbeT
+for(i in 1:nrow(export)){
+  print(i)
+  parent = export[i,"parentcountry"]
+  child = export[i,"Country"]
+  des = getDescendants(global_tree$tree,export[i,"node"])
+  des
+  des = global_tree$data[which(global_tree$data$node %in% des),]
+  export[i,"VC_0258.assembled"] = names(sort(table(global[which(gsub("#", "_", global$ID) %in% des$label),"VC_0258.assembled"]), decreasing = T))[1]
+}
+
+table(global$VC_0258.assembled)
+global$VC_0258 = "Present"
+global[which(global$VC_0258.assembled %in% c("fragmented", "partial")),"VC_0258"] = c("Fragmented/partial")
+global[which(global$VC_0258.assembled == "no"),"VC_0258"] = c("Not present")
+total = as.data.frame(table(global[which(global$Country == "Bangladesh" & global$Year >= 2003),"VC_0258"]))
+colnames(total) = c("VC_0258", "Freq")
+total$Category = "Total"
+
+#Export events
+bd = export[which(export$parentcountry == "Bangladesh" & export$numeric.date >= 2003),]
+export_events = as.data.frame(table(bd$VC_0258.assembled))
+bd$VC_0258.assembled[which(bd$VC_0258.assembled == "fragmented")] = "Fragmented/partial"
+bd$VC_0258.assembled[which(bd$VC_0258.assembled == "yes")] = "Present"
+export_events = as.data.frame(table(bd$VC_0258.assembled))
+colnames(export_events) = c("VC_0258", "Freq")
+export_events$Category = "Export events"
+#Downstream samples
+downstream = aggregate(bd$Downstream_total, by = list(c(VC_0258 = bd$VC_0258.assembled)), FUN = sum)
+colnames(downstream ) = c("VC_0258", "Freq")
+downstream$Category = "Samples descended from export events"
+#Together
+wbeT_export = rbind(total, export_events, downstream)
+rm(total, export_events, downstream)
+wbeT_export$VC_0258 =factor(wbeT_export$VC_0258, levels = c("Not present", "Fragmented/partial", "Present"))
+wbeT_export$Category = factor(wbeT_export$Category , levels = c("Total", "Export events", "Samples descended from export events"))
+
+fisher = wbeT_export
+fisher$VC_0258 = as.character(fisher$VC_0258)
+for(i in unique(fisher$Category)){
+  fisher[which(fisher$Category == i & fisher$VC_0258 %in% c("Fragmented/partial", "Not present")),"Freq"] = sum(fisher[which(fisher$Category == i & fisher$VC_0258 %in% c("Fragmented/partial", "Not present")),"Freq"])
+  fisher[which(fisher$Category == i & fisher$VC_0258 %in% c("Fragmented/partial", "Not present")),"VC_0258"] = "Not complete"}
+fisher = unique(fisher)
+fisher = dcast(fisher, Category~VC_0258, value.var = "Freq")
+fisher.test(as.matrix(fisher[1:2,2:3]))$p.value
+
+fisher.test(as.matrix(fisher[c(1,3),2:3]), simulate.p.value = T)$p.value
+fisher.test(as.matrix(fisher[c(2,3),2:3]))$p.value
+
+b = ggplot(wbeT_export, aes(x = Category, fill = VC_0258, y = Freq))  + 
+  geom_bar(stat = "identity", position = "fill", color = "black") + 
+  scale_fill_manual(values = c("white", "grey85", brewer.pal(8, "Dark2")[1])) +
+  geom_text(aes(label = Freq),  position = position_fill(vjust = 0.5)) +
+  theme(panel.grid = element_blank(), panel.background = element_blank(), panel.border = element_rect(fill = NA), legend.position = "bottom") + labs(y = "Proportion", x = "Population", fill = "wbeT (VC0258)")+ guides(fill=guide_legend(nrow = 2))
+
+g = arrangeGrob(a,b, ncol = 2)
+ggsave("PLE_overrep.svg",g, width = 5, height = 3)
+
+
+#India
+total = as.data.frame(table(global[which(global$Country == "India" & global$Year >= 2003),"PLE"]))
+colnames(total) = c("PLE", "Freq")
+total$Category = "Total"
+#Export events
+ind = export[which(export$parentcountry == "India" & export$numeric.date >= 2003),]
+export_events = as.data.frame(table(ind$PLE))
+colnames(export_events) = c("PLE", "Freq")
+export_events$Category = "Export events"
+#Downstream samples
+downstream = aggregate(ind$Downstream_total, by = list(c(PLE = ind$PLE)), FUN = sum)
+colnames(downstream ) = c("PLE", "Freq")
+downstream$Category = "Samples descended from export events"
+#Together
+PLE_export = rbind(total, export_events, downstream)
+rm(total, export_events, downstream)
+PLE_export$PLE =factor(PLE_export$PLE, levels = c("None", paste0("PLE", 1:11)))
+PLE_export$Category = factor(PLE_export$Category , levels = c("Total", "Export events", "Samples descended from export events"))
+
+fisher = PLE_export
+fisher$PLE = as.character(fisher$PLE)
+for(i in unique(fisher$Category)){
+  fisher[which(fisher$Category == i & fisher$PLE %in% paste0("PLE", 1:11)),"Freq"] = sum(fisher[which(fisher$Category == i & fisher$PLE %in% paste0("PLE", 1:11)),"Freq"])
+  fisher[which(fisher$Category == i & fisher$PLE %in% paste0("PLE", 1:11)),"PLE"] = "PLE"}
+fisher = unique(fisher)
+fisher = fisher[,c("PLE", "Category", "Freq")]
+fisher = dcast(fisher, Category~PLE, value.var = "Freq")
+fisher
+fisher.test(as.matrix(fisher[1:2,2:3]))$p.value
+fisher.test(as.matrix(fisher[c(1,3),2:3]), simulate.p.value = T)$p.value
+fisher.test(as.matrix(fisher[c(2,3),2:3]))$p.value
+
+a = ggplot(PLE_export, aes(x = Category, fill = PLE, y = Freq)) + 
+  geom_bar(stat = "identity", position = "fill", color = "black") + 
+  scale_fill_manual(values = c("white", brewer.pal(11, "Spectral")[c(1:4, 9:11)])) +
+  geom_text(aes(label = Freq),  position = position_fill(vjust = 0.5)) +
+  theme(panel.grid = element_blank(), panel.background = element_blank(), panel.border = element_rect(fill = NA), legend.position = "bottom") +
+  labs(y = "Proportion", x = "Population") + guides(fill=guide_legend(nrow = 2))
+
+#### MISC CODE ####
+#SXT elements
+
+#SXT-ICE
+#Get locations of assemblies containing SXT-ICE
+#In many cases at one end of a contig.
+icegen = global[which(global$SXT.y == "ICE-GEN"),"ID"]
+icegen[grep("GVE", invert = T, icegen)] = paste0("links/fa/", icegen[grep("GVE", invert = T, icegen)], ".fa")
+icegen[grep("GVE", icegen)] = paste0("GVE/fa/", icegen[grep("GVE", icegen)] , ".fa")
+cat(icegen, sep = "\n", file = "ICEGEN_assemblies.txt")
+
+
+icegen = data.frame(x =  703922, y = "", label = "ICE-GEN insertion site")
+ggplot(gannotation[which(gannotation$start > (703922-2500) & gannotation$end < (703922+2000) & gannotation$seqnames == "AE003852"),],  aes(xmin = start, xmax = end, fill = locus_tag, y= "", forward = forward)) + geom_gene_arrow() +
+  theme_genes() +
+  geom_gene_label(align = "left", aes(label = locus_tag)) + geom_feature(y = "", x =703922) + 
+  geom_feature_label(data = icegen, aes(x =x, y = y, label = label)) + scale_fill_brewer(palette = "YlOrRd") + theme(legend.position = "none", axis.title.y = element_blank()) + labs(x = "Position (N16961 chr. II)")
+
+
+#ICE-TET
+icetet = global[which(global$SXT.y == "ICE-TET"),"ID"]
+icetet[grep("GVE", invert = T, icetet)] = paste0("links/fa/", icetet[grep("GVE", invert = T, icetet)], ".fa")
+icetet[grep("GVE", icetet)] = paste0("GVE/fa/", icetet[grep("GVE", icetet)] , ".fa")
+cat(icetet, sep = "\n", file = "icetet_assemblies.txt")
+
+#Summarise variable regions
+library(ggrepel)
+summary = data.frame(Element = c("PLE1", "PLE11", "VSP-II", "SXT-ICE", "wbeT", "ctxB", "Superintegron", "VSP-I", "VPI-I (tcp)",  "VPI-II", "rtxA", "Kappa phage"), Start = c(411334,520264,523156,703922,263536,1566979,300463,175343,873247,1896115,1550120,2334465), End = c(411334,520264, 550020, 703922, 264219,1567353,436630,189380,914129,1952883,1563796,2440682), Chr = c(2,2,1,1,1,1,2,1,1,1,1,1))
+summary$Text = (summary$Start + summary$End)/2
+gannotation[which(gannotation$type == "databank_entry"),]
+
+ggplot(summary[which(summary$Chr == 1),], aes(xmin = Start, xmax= End))+ geom_hline(yintercept = 0) + geom_rect(ymin = -0.5, ymax = 0.5, color = "black", fill = brewer.pal(9, "GnBu")[8])  + geom_text_repel(aes(label = Element, x = Text), y = 2) + ylim(-5,4) + coord_polar() + theme_void() + xlim(0,2961182)
+ggsave("ChrI.svg")
+
+ggplot(summary[which(summary$Chr == 2),], aes(xmin = Start, xmax= End))+ geom_hline(yintercept = 0) + geom_rect(ymin = -0.25, ymax = 0.25, color = "black", fill = brewer.pal(9, "GnBu")[8])  + geom_text_repel(aes(label = Element, x = Text), y = 2) + ylim(-2,4) + coord_polar() + theme_void() + xlim(0,1072319)
+ggsave("ChrII.svg")
+
+
+#Try with loess interpolation to prevent hallucination
+dyn = as.data.frame(table(global[which(global$Country == "Bangladesh"  & global$Year > 2003),c("Year", "BAPS3")]))
+dyn$Year = as.numeric(as.character(dyn$Year))
+
+for(i in unique(dyn$BAPS3)){
+  fit = loess(Freq ~ Year, data =dyn[which(dyn$BAPS3 == i),], span = 0.12)
+  predicted = predict(fit, data.frame(Year = seq(from = 2003, to = 2024, by = 0.01)))
+  interp = data.frame(BAPS3 = i, Year = seq(from = 2003, to = 2024, by = 0.01), Freq = predicted)
+  if(i == unique(dyn$BAPS3)[1]){smoothed_dyn = interp}else{smoothed_dyn = rbind(smoothed_dyn, interp)}
+}
+smoothed_dyn[which(is.na(smoothed_dyn$Freq)),"Freq"] = 0
+smoothed_dyn[which(smoothed_dyn$Freq < 0),"Freq"] = 0
+
+ggplot(smoothed_dyn, aes(x = Year, y = Freq, fill = BAPS3)) + 
+  geom_area(color = "black", position = "fill") + scale_fill_manual(values = colors[which(colors$BAPS3 %in% dyn$BAPS3), "col"]) + theme_minimal() + xlim(2003, 2024)  +
+  theme(panel.grid.major = element_blank(),panel.grid.minor = element_blank(), text = element_text(size = 16), legend.text = element_text(size = 10)) 
+
+
+#### ENA deposit ####
+global$Excluded = "No"
+exclude$Excluded = "Yes"
+colnames(exclude)[which(colnames(exclude) == "Country.clean")] = "Country"
+ena_deposit = rbind.fill(global, exclude)
+ena_deposit$EBI.ENA
+sort(table(ena_deposit$Reference))
+ena_deposit = ena_deposit[which(ena_deposit$Reference %in% c("Thakur et al. (in prep)", "2% study", "2014-2018 Surveillance", "Singh et al. (in prep)")),c("ID", "Study", "EBI.ENA", "Year", "City")]
+nrow(ena_deposit[which(!is.na(ena_deposit$EBI.ENA)),])
+alyce = read.csv("AlyceMetadata.csv")
+alyce = alyce[which(alyce$Study == "This Study"),"Sample_ID"]
+alyce = sub("^(.*?_.*?)_(.*)$", "\\1#\\2", alyce)
+ena_deposit = ena_deposit[-which(ena_deposit$ID %in% alyce),]
+cat(ena_deposit$ID, sep = "\n", file = "laneids.txt")
+accession = read.delim("accessions.txt", sep = " ", fill = T, header = F, skip = 1)
+for(i in 1:nrow(ena_deposit)){
+  if(nrow(accession[which(accession$V18 == ena_deposit[i,"ID"]),])> 0){ena_deposit[i,"EBI.ENA"] = accession[which(accession$V18 == ena_deposit[i,"ID"]),"V2"]}}
+for(i in which(is.na(ena_deposit$EBI.ENA))){
+  if(nrow(accession[which(accession$V17 == ena_deposit[i,"ID"]),])> 0){ena_deposit[i,"EBI.ENA"] = accession[which(accession$V17 == ena_deposit[i,"ID"]),"V2"]}}
+
+nisha = read.csv("ERP115590.csv", fill = T)
+nisha = nisha[-1,]
+nisha$File = gsub("[.]cram", "", nisha$File)
+for(i in nisha$File){
+  ena_deposit[which(ena_deposit$ID == i),"EBI.ENA"] = nisha[which(nisha$File == i),"Sample.accession"]}
+
+#Supplementary document
+supp = rbind.fill(global, exclude)
+for(i in supp[which(is.na(supp$EBI.ENA)),"ID"]){
+  if(length(ena_deposit[which(ena_deposit$ID == i),"EBI.ENA"]) > 0){
+  supp[which(supp$ID == i),"EBI.ENA"] = ena_deposit[which(ena_deposit$ID == i),"EBI.ENA"]}}
+
+colnames(supp)
+supp$Location = supp$City
+supp[which(!is.na(supp$Division)),"Location"] = supp[which(!is.na(supp$Division)),"Division"] 
+#View(supp[which(is.na(supp$EBI.ENA)),])
+
+supp1 = supp[,c("ID", "EBI.ENA", "Reference", "Source", "Date", "Country", "Excluded","Location","Site", "Stool.Nature","Dehydration","Serotype", "AMP_phenotype","AZM_phenotype", "CFM_phenotype", "CIP_phenotype" , "CRO_phenotype", "DO_phenotype", "E_phenotype", "SXT_phenotype" , "TE_phenotype", "NA._phenotype" , "Is_7PET", "Percent_VCholerae", "Percent_ICP1","Distance_ref","ctxB_type", "SXT","PLE", "Plasmid", "KappaPhage", "VSP_II", "Superintegron", "BAPS1", "BAPS3")]
+supp2 = supp[,colnames(supp)[sort(c(grep("assembled", colnames(supp))-1, grep("assembled", colnames(supp))))]]
+supp = cbind(supp1, supp2)
+colnames(supp)[c(2,22, 26,31,34,35)] = c("ENA_id", "NA_phenotype", "SNP_distance_N16961", "K139", "Lineage", "Sublineage")
+supp$Lineage[which(supp$Lineage == "BD1")] = "sBD1"
+supp[which(supp$Lineage == "sBD1"), "Sublineage"] = paste0("s", supp[which(supp$Lineage == "sBD1"), "Sublineage"])
+supp = supp[order(supp$ID),]
+supp[which(supp$Reference == "2% study" ),"ENA_id"] = paste0("ERS2285", 1684:1744)
+
+more =read.csv("MoreENA.csv", header = F)
+for(i in unique(more$V3)){
+  supp[which(supp$ID == i),"ENA_id"] = more[which(more$V3 == i),"V2"]}
+
+supp[which(supp$ID == "Reference"),c("VSP_II", "Superintegron")] = NA
+supp = supp[order(supp$Excluded, supp$Reference),]
+
+for(i in c(3:4,6,8:12, 26:30)){
+  print(colnames(supp)[i])
+ print(table(supp$Excluded, supp[,i]))
+ print("")
+  }
+
+supp = supp[,-which(colnames(supp) == "SXT.1")]
+supp[which(supp$SXT == "SXT_ICE_TET_MK165649"), "SXT"] = "ICE-TET"
+supp[which(supp$SXT == "SXT_ICE_GEN_KY382507"), "SXT"] = "ICE-GEN"
+
+supp[which(supp$Reference == "This study"),"Reference"] = "2014-2018 Surveillance"
+supp$Non7PET = NA
+supp[grep("No", supp$Is_7PET),"Non7PET"] = gsub("No", "Yes", supp[grep("No", supp$Is_7PET),c("Is_7PET")])
+supp = supp[,which(colnames(supp) != "Is_7PET")]
+View(supp[which(supp$PLE != "None" & supp$Country != "Bangladesh"),])
+supp$Notes = NA
+supp[which(supp$Lineage == "LAT1" & supp$PLE == "PLE1"),"Notes"] = "These samples have outlying PLE and SXT profiles for their lineage- it is unclear whether this is due to contamination"
+
+table(supp$Lineage)
+write.csv(supp, file = "SupplementaryDocument1.csv", row.names = F)
+
+
+supp2 = global_tree$data
+colnames(supp2)
+supp2 = supp2[,which(!colnames(supp2) %in% c( "VC_A0219", "VC_0841", "VC_1451" , "VC_0258" ,"BAPS2", "City", "Site"))]
+colnames(supp2)[c(12, 13)] = c("Lineage", "Sublineage")
+write.csv(supp2, file = "SupplementaryDocument2.csv", row.names = F)
+
+#

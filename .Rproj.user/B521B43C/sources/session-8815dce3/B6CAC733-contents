@@ -1,0 +1,36 @@
+x = read.csv("~/Documents/Papers/Cholera/Nature Submission/Revisions/SupplementaryDocument1.csv")
+ggplot(as.data.frame(table(x$Percent_ICP1 > 0.01, x$Dehydration)), aes(x = Var1, fill = Var2, y = Freq)) + geom_bar(stat = "identity", position = "fill")
+
+
+df = table(x$Percent_ICP1 > 0.01, x$Stool.Nature)
+df = 100*df/rowSums(df)
+df = as.data.frame(df)
+df$Var1 = gsub("TRUE", "ICP1 Present", df$Var1)
+df$Var1 = gsub("FALSE", "ICP1 Absent", df$Var1)
+
+ggplot(df[which(df$Var2 == "Rice watery"),], aes(x = Var1, y = Freq)) + geom_bar(stat = "identity") + theme_bw() + theme(panel.grid = element_blank(), text = element_text(size =14)) + labs(y = "% with rice water diarrhoea", x = "")
+df[which(df$Var2 == "Rice watery"),"Var1"]
+df
+ggsave("ICP1presentabsent.svg", height = 4, width = 2.5)
+
+
+
+setwd("/Users/ab61/Documents/Metagenomes")
+list.files()
+load("/Users/ab61/Documents/Data Analysis/Vibrio2023/treetime_samples/Microbiomefastq.Rdata")
+salmonella <- read.delim("~/Downloads/Salmonella.txt", header=FALSE)
+salmonella1 <- read.delim("~/Downloads/Salmonellanonendemic.txt", header=FALSE)
+salmonella = rbind(salmonella, salmonella1)
+unique(salmonella[which(salmonella$V4 == "S"),"V6"])
+salmonella$Sample = gsub("_report.*", "", salmonella$V1)
+salmonella$Percent = as.numeric(gsub(".* ", "", salmonella$V1))
+#76 species
+length(unique(salmonella[which(salmonella$V4 == "S"),"V6"]))
+length(unique(salmonella[which(salmonella$V4 == "S" & salmonella$Percent >= 0.01),"V6"]))
+
+sort(table(salmonella[which(salmonella$V4 == "S" & salmonella$Percent >= 0.01),"V6"]))
+
+
+nrow(all)/1000
+
+table(unique(salmonella$Sample) %in% Cholera_endemic$Run)

@@ -1,0 +1,110 @@
+setwd("/Users/ab61/Documents/Data Analysis/Enterobacteria")
+RNA = read.table("RNAseqsummarytyphoid", header = T)
+meta = read.csv("TyphoidRNAseqRuntable.csv")
+subset = meta[which(meta$Assay.Type == "RNA-Seq" & meta$study_timept  %in% c("prechallenge_POV28", "prevaccine_1")),]
+unique(meta$study_timept)
+#subset = meta[which(meta$Assay.Type == "RNA-Seq" & meta$study_timept == "prevaccine_1" ),]
+ena = read.table("~/Downloads/ena-file-download-read_run-PRJNA407499-fastq_ftp-20251006-1353.sh", quote="\"", comment.char="", sep = "\t")
+ena$ID = gsub("_.*", "", gsub(".*/", "", ena$V1))
+ena = ena[which(ena$ID %in% subset$Run),]
+cat(ena$V1, sep = "\n")
+ena$fastq = gsub(".*/", "", ena$V1)
+cat(ena$V1, sep = "\n")
+#success = read.table("~/Downloads/success (7).txt", quote="\"", comment.char="")
+#success = c("SRR6448560","SRR6760322","SRR6760693","SRR6761483","SRR6798973","SRR6897015", "SRR6759895","SRR6760680","SRR6760700","SRR6762722","SRR6890587")
+success = c("SRR6448561","SRR6759884","SRR6760315","SRR6760683","SRR6760762","SRR6763013","SRR6889007", "SRR6448562","SRR6759885","SRR6760340","SRR6760694","SRR6761484","SRR6798967", "SRR6757983","SRR6759893","SRR6760662","SRR6760702","SRR6762305","SRR6798974")
+failed = c("SRR6448561","SRR6757983","SRR6759884","SRR6759885","SRR6760315","SRR6760340","SRR6760662","SRR6760683","SRR6760694","SRR6760702","SRR6760762","SRR6761484","SRR6762305","SRR6763013","SRR6798967","SRR6798974")
+cat(ena[which(!ena$ID %in% success),"V1"], sep = "\n")
+cat(ena[which(ena$ID %in% failed),"V1"], sep = "\n")
+SalmonellaPhagesT2 <- read.delim("~/Downloads/SalmonellaPhagesT2.txt", header=FALSE)
+subset$Phage = "None"
+SalmonellaPhagesT2$Sample = gsub("_.*", "", SalmonellaPhagesT2$V1)
+SalmonellaPhagesT2$Percent = as.numeric(gsub(".*_krakenreport:  ", "", SalmonellaPhagesT2$V1))
+SalmonellaPhagesT2[which(SalmonellaPhagesT2$Percent >= 0.01),"Sample"]
+subset[which(subset$Run %in% c(SalmonellaPhagesT2[which(SalmonellaPhagesT2$Percent >= 0.01),"Sample"])),"Phage"] = "SAP012"
+ggplot(subset, aes(x = symptom, fill = Phage)) + geom_bar() + facet_wrap(~study_timept+vaccine)
+subset$Diagnosed = as.numeric(subset$symptom == "TD")
+summary(glm(Diagnosed~Phage+vaccine, subset[which(subset$study_timept == "prechallenge_POV28"),], family = "binomial"))
+
+#Antibody
+lps = read_excel("~/Documents/T2 ELISA all.xlsx")
+subset$subject %in% lps$LabNo
+subset = merge(subset, lps, by.x = "subject", by.y = "LabNo", all.x = T)
+subset$vaccine
+ggplot(subset[which(subset$study_timept == "prevaccine_1"),], aes(x = Phage, y = log(`LPS IgA Day 28`/`LPS IgA Day 0`))) + geom_boxplot(outlier.shape = NA) + facet_wrap(~vaccine != "Placebo") + geom_jitter()
+subset$PhagePresent = as.numeric(subset$Phage == "SAP012")
+subset$Antibody = log(subset$`LPS IgA Day 28`/subset$`LPS IgA Day 0`)
+summary(glm(PhagePresent~Antibody,subset[which(subset$study_timept == "prevaccine_1" & subset$vaccine != "Placebo"),], family = "binomial"))
+wilcox.test(subset[which(subset$study_timept == "prevaccine_1" & subset$vaccine != "Placebo" & subset$PhagePresent == 1),"Antibody"], subset[which(subset$study_timept == "prevaccine_1" & subset$vaccine != "Placebo" & subset$PhagePresent == 0),"Antibody"], alternative = "less")
+subset[which(subset$study_timept == "prevaccine_1" & subset$vaccine != "Placebo" & subset$PhagePresent == 1),"Antibody"]
+
+
+b = ggplot(subset[which(subset$study_timept == "prevaccine_1" & subset$vaccine != "Placebo"),], aes(x = Phage,fill = Phage, y = log(`LPS IgA Day 28`/`LPS IgA Day 0`))) + geom_boxplot(outlier.shape = NA) + geom_jitter(width = 0.1, size = 4, shape = 21) + theme_bw() + theme(panel.grid = element_blank(), text = element_text(size = 14)) + labs(x = "Salmonella Phage Present") + labs(y = "log(fold change in LPS IgA after vaccination)" ) + scale_fill_manual(values = c(brewer.pal(9, "GnBu")[c(2,5)])) + guides(fill = "none")
+b
+subset$Ab = log(subset$`LPS IgA Day 28`/subset$`LPS IgA Day 0`)
+cohens_d(subset[which(subset$study_timept == "prevaccine_1" & subset$vaccine != "Placebo"),], Ab~Phage)
+
+#Cholera
+load(file = "/Users/ab61/Documents/Data Analysis/Vibrio2023/Cholera.Rdata")
+setwd("/Users/ab61/Documents/Metagenomes")
+Cholera_endemic1 <- read.csv("Cholera_endemic_408170_2705415.csv")
+Cholera_endemic2 <- read.csv("Cholera_endemic_749906.csv")
+Cholera_endemic = plyr::rbind.fill(Cholera_endemic1, Cholera_endemic2)
+Cholera_endemic[which(Cholera_endemic$BioProject == "PRJEB6358"),"geo_loc_name_country"] = "Bangladesh"
+Cholera_endemic = Cholera_endemic[-which(Cholera_endemic$geo_loc_name_country == ""),]
+Cholera_endemic = Cholera_endemic[-which(Cholera_endemic$geo_loc_name_country == "USA"),]
+Cholera_endemic = Cholera_endemic[-which(Cholera_endemic$geo_loc_name_country == "Poland"),]
+Cholera_endemic = Cholera_endemic[-which(Cholera_endemic$geo_loc_name_country == "uncalculated"),]
+Cholera_endemic = Cholera_endemic[-which(Cholera_endemic$geo_loc_name_country == "Denmark"),]
+Cholera_endemic = Cholera_endemic[-which(Cholera_endemic$geo_loc_name_country == "China"),]
+
+all[which(all$Run %in% PRJNA608678$Run),]
+
+ICP1 <- read.delim("ICP1 (2).txt", header=FALSE)
+library(dplyr)
+ICP1$Sample = gsub("kraken/","", ICP1$V1) %>% gsub("_report.*", "", .)
+ICP1$Percent = as.numeric(gsub(".*_report:", "", ICP1$V1))
+ICP1$Reads = ICP1$V3
+Cholera_endemic = merge(Cholera_endemic, ICP1[,c("Sample", "Reads", "Percent")], by.x = "Run", by.y = "Sample", all.x = T, all.y = F)
+Cholera_endemic[which(Cholera_endemic$Reads > 1000),"Run"]
+#View(Cholera_endemic[which(Cholera_endemic$Reads > 1000),])
+
+
+PRJNA608678 <- read.csv("~/Documents/Data Analysis/Cholera/ICP1/PRJNA608678.txt")
+PRJNA608678_Levade_2020 <- read_excel("~/Documents/Data Analysis/Cholera/ICP1/PRJNA608678_Levade_2020.xlsx", skip = 3)
+PRJNA608678_Levade_2020$`Subject ID` %in% PRJNA608678$Sample.Name
+library(ggplot2)
+
+expanded = PRJNA608678_Levade_2020[0,]
+for(i in 1:nrow(PRJNA608678_Levade_2020)){
+  x = strsplit(as.character(PRJNA608678_Levade_2020[i,"Day sampled"]), split = ", ")[[1]]
+  
+  for(j in x){
+    print(j)
+    new = as.data.frame(PRJNA608678_Levade_2020[i,])
+    new$`Day sampled` = j
+    expanded = rbind(expanded, new)
+  }}
+expanded$Sample.Name = paste0(expanded$`Subject ID`, gsub("Day ", "d", expanded$`Day sampled`))
+PRJNA608678 = merge(PRJNA608678[,c("Run", "Sample.Name", "Collection_Date")], expanded, by = "Sample.Name")
+PRJNA608678$Study = "Levade et al. 2021, JID" 
+
+x = merge(Cholera_endemic, PRJNA608678, by = "Run")
+x$`Baseline vibriocidal titer on day 2 Inaba`
+x = x[which(!is.na(x$Percent)),]
+ggplot(x, aes(x = Percent > 0.01, y =log(`Baseline vibriocidal titer on day 2 Inaba` ))) + geom_boxplot() 
+
+ggplot(x, aes(x = Percent > 0.01, y =log(`Baseline vibriocidal titer on day 2 Ogawa`))) + geom_boxplot() 
+
+a = ggplot(x, aes(x = Percent > 0.01, y =log(`Baseline vibriocidal titer on day 2 Ogawa`), fill = Percent > 0.01)) + geom_boxplot(outlier.shape = NA) + scale_fill_manual(values = brewer.pal(9, "GnBu")[c(2,5)]) + geom_jitter(width = 0.1, size = 4, shape = 21) + theme_bw() + theme(panel.grid = element_blank(), text = element_text(size = 14)) + labs(y = "log(Vibriocidal Antibody Titre)", x= "ICP1 Present") + guides(fill = "none")
+x$ICP1 = x$Percent > 0.01 
+x$Ab = x$`Baseline vibriocidal titer on day 2 Ogawa`
+x$Ab = as.numeric(x$Ab)
+cohens_d(x, Ab~ICP1)
+
+
+antibody = arrangeGrob(a, b, ncol = 2)
+ggsave(antibody, file = "Phage_Antibody.svg", width = 4, height = 3)
+
+#Associated lower antibody responses
+wilcox.test(x[which(x$Percent >= 0.01),"Baseline vibriocidal titer on day 2 Ogawa"], x[which(x$Percent < 0.01),"Baseline vibriocidal titer on day 2 Ogawa"], alternative = "less")

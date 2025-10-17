@@ -1,0 +1,880 @@
+rm(list=ls())
+setwd("/Users/ab61/Documents/Data Analysis/Enterobacteria")
+#### Salmonella Shigella ####
+
+library(DESeq2)
+library(preprocessCore)
+
+# load counts table from GEO
+urld <- "https://www.ncbi.nlm.nih.gov/geo/download/?format=file&type=rnaseq_counts"
+path <- paste(urld, "acc=GSE69529", "file=GSE69529_raw_counts_GRCh38.p13_NCBI.tsv.gz", sep="&");
+tbl <- as.matrix(data.table::fread(path, header=T, colClasses="integer"), rownames="GeneID")
+metadata = read.csv("GSE69529.csv", fill = T)
+metadata = metadata[which(metadata$Organisms %in% c("Salmonella", "Shigella")),]
+metadata$Severity
+
+table(metadata[,c("Organisms", "Severity")])
+
+# load gene annotations 
+apath <- paste(urld, "type=rnaseq_counts", "file=Human.GRCh38.p13.annot.tsv.gz", sep="&")
+annot <- data.table::fread(apath, header=T, quote="", stringsAsFactors=F, data.table=F)
+rownames(annot) <- annot$GeneID
+
+
+# filter out excluded samples (marked as "X")
+tbl <- tbl[ ,metadata$Accession]
+
+# group membership for samples
+rownames(metadata) = metadata$Accession
+
+# pre-filter low count genes
+# keep genes with at least N counts > 10, where N = size of smallest group
+keep <- rowSums( tbl >= 10 ) >= 6
+tbl <- tbl[keep, ]
+#Only protein coding
+unique(annot$GeneType)
+tbl = tbl[which(rownames(tbl) %in% rownames(annot[which(annot$GeneType == "protein-coding"),])),]
+
+#For each analysis just limit to whatever comparing.
+met = metadata[which(metadata$Organisms == "Salmonella"),]
+met$Symptoms = met$Severity
+met[which(met$Symptoms != "Control"),"Symptoms"] = "Symptoms"
+exp = tbl[,met$Accession]
+
+ds <- DESeqDataSetFromMatrix(countData=exp, colData=met, design= ~Symptoms)
+ds <- DESeq(ds, test="Wald", sfType="poscount")
+r <- results (ds, alpha=0.05, pAdjustMethod ="fdr")
+
+tT <- r[order(r$padj),] 
+tT <- merge(as.data.frame(tT), annot, by=0, sort=F)
+#View(tT[which(tT$log2FoldChange < 0 & tT$padj < 0.05),])
+
+#Check direction
+rownames(tbl)
+igg = reshape2::melt(tbl[which(rownames(tbl) == "2838"),])
+igg = merge(igg, metadata, by = "row.names")
+ggplot(igg[which(igg$Organisms == "Salmonella"),], aes(x = Severity, y = value)) + geom_boxplot()
+
+tT <- subset(tT, select=c("GeneID","padj","pvalue","lfcSE","stat","log2FoldChange","baseMean","Symbol","Description"))
+#Negatives = higher in control
+salmonella_control_vs_symp = tT
+
+
+#Shigella control vs asymptomatic
+met = metadata[which(metadata$Organisms == "Shigella"),]
+met$Symptoms = met$Severity
+met[which(met$Symptoms != "Control"),"Symptoms"] = "Symptoms"
+exp = tbl[,met$Accession]
+
+ds <- DESeqDataSetFromMatrix(countData=exp, colData=met, design= ~Symptoms)
+ds <- DESeq(ds, test="Wald", sfType="poscount")
+r <- results (ds, alpha=0.05, pAdjustMethod ="fdr")
+tT <- r[order(r$padj),] 
+tT <- merge(as.data.frame(tT), annot, by=0, sort=F)
+View(tT[which(tT$log2FoldChange < 0 & tT$padj < 0.05),])
+
+#Check direction
+rownames(tbl)
+igg = reshape2::melt(tbl[which(rownames(tbl) == "28563"),])
+igg = merge(igg, metadata, by = "row.names")
+ggplot(igg[which(igg$Organisms == "Shigella"),], aes(x = Severity, y = value)) + geom_boxplot()
+
+tT <- subset(tT, select=c("GeneID","padj","pvalue","lfcSE","stat","log2FoldChange","baseMean","Symbol","Description"))
+shigella_control_vs_symp = tT
+
+
+
+#Salmonella mild vs moderate
+met = metadata[which(metadata$Organisms == "Salmonella" & metadata$Severity != "Control"),]
+met$Symptoms = met$Severity
+met[which(met$Symptoms != "mild"),"Symptoms"] = "ModerateSevere"
+exp = tbl[,met$Accession]
+
+ds <- DESeqDataSetFromMatrix(countData=exp, colData=met, design= ~Symptoms)
+ds <- DESeq(ds, test="Wald", sfType="poscount")
+r <- results (ds, alpha=0.05, pAdjustMethod ="fdr")
+
+tT <- r[order(r$padj),] 
+tT <- merge(as.data.frame(tT), annot, by=0, sort=F)
+#Very interesting!
+igg = reshape2::melt(tbl[which(rownames(tbl) == "3904"),])
+igg = merge(igg, metadata, by = "row.names")
+ggplot(igg[which(igg$Organisms == "Salmonella"),], aes(x = Severity, y = value)) + geom_boxplot()
+tT[which(tT$log2FoldChange < 0 & tT$padj < 0.05),]
+salmonella_mild_vs_moderate = tT
+
+#Shigella mild vs moderate
+met = metadata[which(metadata$Organisms == "Shigella" & metadata$Severity != "Control"),]
+met$Symptoms = met$Severity
+met[which(met$Symptoms != "mild"),"Symptoms"] = "ModerateSevere"
+exp = tbl[,met$Accession]
+
+ds <- DESeqDataSetFromMatrix(countData=exp, colData=met, design= ~Symptoms)
+ds <- DESeq(ds, test="Wald", sfType="poscount")
+r <- results (ds, alpha=0.05, pAdjustMethod ="fdr")
+
+tT <- r[order(r$padj),] 
+tT <- merge(as.data.frame(tT), annot, by=0, sort=F)
+
+shigella_mild_vs_moderate = tT
+
+#Now try with ordinal
+met = metadata[which(metadata$Organisms == "Shigella"),]
+met$Symptoms = met$Severity
+met$Symptoms  = as.numeric(factor(met$Symptoms, levels = c("Control", "mild", "moderate", "severe")))
+exp = tbl[,met$Accession]
+
+ds <- DESeqDataSetFromMatrix(countData=exp, colData=met, design= ~Symptoms)
+ds <- DESeq(ds, test="Wald", sfType="poscount")
+r <- results (ds, alpha=0.05, pAdjustMethod ="fdr")
+
+tT <- r[order(r$padj),] 
+tT <- merge(as.data.frame(tT), annot, by=0, sort=F)
+tT[which(tT$log2FoldChange < 0 & tT$padj < 0.05),]
+
+met = metadata[which(metadata$Organisms == "Salmonella"),]
+met$Symptoms = met$Severity
+met$Symptoms  = as.numeric(factor(met$Symptoms, levels = c("Control", "mild", "moderate", "severe")))
+exp = tbl[,met$Accession]
+
+ds <- DESeqDataSetFromMatrix(countData=exp, colData=met, design= ~Symptoms)
+ds <- DESeq(ds, test="Wald", sfType="poscount")
+r <- results (ds, alpha=0.05, pAdjustMethod ="fdr")
+
+tT <- r[order(r$padj),] 
+tT <- merge(as.data.frame(tT), annot, by=0, sort=F)
+tT[which(tT$log2FoldChange < 0 & tT$padj < 0.05),]
+
+#Which ones actuall show dose dependent patterns?
+#Salmonella
+pattern =c()
+for(i in tT$Row.names){
+  igg = reshape2::melt(tbl[which(rownames(tbl) == i),rownames(metadata[which(metadata$Organisms == "Salmonella"),])])
+  igg = merge(igg, metadata, by = "row.names")
+  igg = aggregate(igg$value, by = list(igg$Severity), FUN = median)
+  if(igg[which(igg$Group.1 == "mild"),"x"] < igg[which(igg$Group.1 == "Control"),"x"] & igg[which(igg$Group.1 == "mild"),"x"] > igg[which(igg$Group.1 == "moderate"),"x"] & igg[which(igg$Group.1 == "moderate"),"x"] > igg[which(igg$Group.1 == "severe"),"x"]){pattern = c(pattern, i)}}
+salmonella_pattern = pattern
+
+pattern =c()
+for(i in tT$Row.names){
+  igg = reshape2::melt(tbl[which(rownames(tbl) == i),rownames(metadata[which(metadata$Organisms == "Shigella"),])])
+  igg = merge(igg, metadata, by = "row.names")
+  igg = aggregate(igg$value, by = list(igg$Severity), FUN = median)
+  if(igg[which(igg$Group.1 == "mild"),"x"] < igg[which(igg$Group.1 == "Control"),"x"] & igg[which(igg$Group.1 == "mild"),"x"] > igg[which(igg$Group.1 == "moderate"),"x"] & igg[which(igg$Group.1 == "moderate"),"x"] > igg[which(igg$Group.1 == "severe"),"x"]){pattern = c(pattern, i)}}
+shigella_pattern = pattern
+
+salmonella_control_vs_symp[which(rownames(salmonella_control_vs_symp) %in% salmonella_pattern),"Pattern"] = "Yes"
+salmonella_mild_vs_moderate[which(rownames(salmonella_mild_vs_moderate) %in% salmonella_pattern),"Pattern"] = "Yes"
+shigella_control_vs_symp[which(rownames(shigella_control_vs_symp) %in% shigella_pattern),"Pattern"] = "Yes"
+shigella_mild_vs_moderate[which(rownames(shigella_mild_vs_moderate) %in% shigella_pattern),"Pattern"] = "Yes"
+
+shigella_metadata = metadata
+shigella_exp = tbl
+
+save(shigella_metadata, shigella_exp, salmonella_control_vs_symp, salmonella_mild_vs_moderate, shigella_control_vs_symp, shigella_mild_vs_moderate, file = "ShigellaSalmonella.Rdata")
+
+#### Asymptomatic E. coli ####
+rm(list=ls())
+library(GEOquery)
+ex = read.delim("Transcriptomics/GSE95104_series_matrix.txt")
+rownames(ex) =ex[,1]
+ex = ex[,-1]
+pheno = read.delim("Transcriptomics/GSE95104_metadata.txt")
+genes = read.csv("Transcriptomics/HG-U133A_2.na36.annot.csv")
+
+# log2 transform
+qx <- as.numeric(quantile(ex, c(0., 0.25, 0.5, 0.75, 0.99, 1.0), na.rm=T))
+LogC <- (qx[5] > 100) ||
+  (qx[6]-qx[1] > 50 && qx[2] > 0)
+if (LogC) { ex[which(ex <= 0)] <- NaN
+ex <- log2(ex) }
+
+# box-and-whisker plot
+boxplot(ex, boxwex=0.7, notch=T, main=title, outline=FALSE, las=2)
+
+dim(ex)
+dim(pheno)
+
+#Remove those not highly expressed
+# keep genes with at least N counts > 10, where N = size of smallest group
+keep <- rowSums( ex >= 4 ) >= 6
+ex <- ex[keep, ]
+ex2 = merge(genes[,c("Probe.Set.ID", "Gene.Symbol")], ex, by.y = "row.names", by.x = "Probe.Set.ID")
+head(ex2)
+rownames(ex2) = ex2$Probe.Set.ID
+ex2 = ex2[,-1]
+ex_collapsed = WGCNA::collapseRows(ex2[,2:ncol(ex2)], rowGroup = ex2[,1], rowID = row.names(ex2), method = "MaxMean")
+ex_collapsed = (ex_collapsed$datETcollapsed)
+
+# mean-variance trend
+ex_collapsed <- na.omit(ex_collapsed) # eliminate rows with NAs
+
+#Baseline
+pheno$PhenotypeDay = paste(gsub(".* ", "", pheno$X.Sample_characteristics_ch1), gsub(".* ", "", pheno$X.Sample_characteristics_ch1.1))
+
+design <- model.matrix(~0+pheno$PhenotypeDay)
+colnames(design) = make.names(gsub("pheno[$]PhenotypeDay", "", colnames(design)))
+library(limma)
+fit <- lmFit(ex_collapsed, design)
+colnames(design)
+contrast.matrix <- makeContrasts(asymptomatic.0-symptomatic.0, asymptomatic.2-symptomatic.2, (asymptomatic.2-asymptomatic.0)-(symptomatic.2-symptomatic.0),asymptomatic.2-asymptomatic.0,levels=design)
+fit2 <- contrasts.fit(fit, contrast.matrix)
+fit2 <- eBayes(fit2)
+
+etec_asymptomatic_vs_symptomatic_baseline = topTable(fit2, coef=1, adjust="BH", number = Inf, confint = T)
+etec_asymptomatic_vs_symptomatic_acute = topTable(fit2, coef=2, adjust="BH", number = Inf,confint = T)
+etec_asymptomatic_vs_symptomatic_acute_adjusted = topTable(fit2, coef=3, adjust="BH", number = Inf,confint = T)
+etec_asymptomatic_acute_vs_baseline = topTable(fit2, coef=4, adjust="BH", number = Inf,confint = T)
+
+ETEC_metadata = pheno
+ETEC_exp = ex_collapsed
+save(etec_asymptomatic_vs_symptomatic_baseline, etec_asymptomatic_vs_symptomatic_acute, etec_asymptomatic_vs_symptomatic_acute_adjusted, etec_asymptomatic_acute_vs_baseline , ETEC_metadata, ETEC_exp, file = "ETEC.Rdata")
+
+#### Typhoid ####
+library(limma)
+library(lumi)
+library(WGCNA)
+library(sva)
+library(preprocessCore)
+
+T1 <- read.ilmn(files = "Transcriptomics/Raw_Data_ProbeProfile_Master_T1.txt" ,ctrlfiles="Transcriptomics/CTRL_Data_ProbeProfile_Master_T1.txt", probeid = "ProbeID", annotation ="TargetID",other.columns = c("Detection"))
+list.files("Transcriptomics")
+T1_targets <- read.delim("Transcriptomics/SampleTargets_Master_T1.txt")
+table(T1_targets$TimePoint)
+T1_targets$Part_no
+
+T2 <- read.ilmn(files = file.path("Transcriptomics/Christoph_Sample_Probe_Profile_R_ilmn.txt"), ctrlfiles = file.path("Transcriptomics/ControlProbeProfile_Christoph.txt"), probeid = "ProbeID", expr = c("AVG_Signal"), annotation ="TargetID", other.columns = c("Detection"))
+
+colnames(T2) <- gsub("\\.", "", colnames(T2))
+colnames(T2) <- paste0("T2_", colnames(T2))
+
+T2_targets = readTargets("Transcriptomics/T2_Targets_final_Floating.txt", na.strings = "NULL")
+
+rownames(T1_targets) = T1_targets$PartID_Visit
+intersect(rownames(T1_targets), colnames(T1))
+T1_targets = T1_targets[which(T1_targets$TimePoint %in% c("V1", "TD", "nD7")),]
+
+table(T1_targets$TimePoint)
+
+intersect(colnames(T2), T2_targets$SampleID)
+
+
+#For each nTD pick most appropriate timepoint
+table(T2_targets[which(T2_targets$TD_Status == "nonTD"),"Part_Num"])
+T2_targets[which(T2_targets$Part_Num %in% c("2043", "2045", "2055", "2082")),]
+three = names(which(table(T2_targets[which(T2_targets$TD_Status == "TD"),"Part_Num"]) == 3))
+T2_targets[which(T2_targets$Part_Num %in% three),]
+T2_targets = T2_targets[-which(T2_targets$TimePoint == "D0+12"),]
+T2_targets = T2_targets[-which(T2_targets$TimePoint == "nD0+12"),]
+table(T2_targets$TimePoint)
+T2_targets[which(T2_targets$TimePoint %in% c("D-14", "D0", "nD0")),"TimePoint"] = "V1"
+T2_targets[which(T2_targets$TimePoint %in% c("TD", "TD12", "TD24", "TD6")),"TimePoint"] = "TD"
+T2_targets[which(!T2_targets$TimePoint %in% c("TD", "V1")),"TimePoint"] = "nD7"
+rownames(T2_targets) = T2_targets$SampleID
+T1_targets[1,]
+T2_targets[1,]
+T1_targets$Vaccine = "Placebo"
+T2_targets$Vaccine = T2_targets$StudyArm
+
+colnames(T1_targets)[2] = "Sample.ID"
+T1_targets = T1_targets[,c("Sample.ID", "Part_no", "High_Low", "TimePoint", "StudyArm", "BATCH", "Vaccine")]
+
+T2_targets$Dose = "High"
+T2_targets$BATCH = "T2"
+T2_targets = T2_targets[,c("SampleID", "Part_Num", "Dose", "TimePoint", "TD_Status", "BATCH", "Vaccine")]
+colnames(T2_targets) = colnames(T1_targets)
+rownames(T2_targets) = T2_targets$Sample.ID
+
+T1 = T1[,which(colnames(T1) %in% rownames(T1_targets))]
+T2 = T2[,which(colnames(T2) %in% rownames(T2_targets))]
+dim(T1$E)
+dim(T2$E)
+
+Acute = merge(T1, T2, by = "row.names")
+Acute_targets = rbind(T1_targets, T2_targets)
+
+
+Acute_targets[which(Acute_targets$TimePoint == "V1"),"TimePoint"] = "D0"
+Acute_targets= Acute_targets[match(colnames(Acute),rownames(Acute_targets)),]
+rownames(Acute_targets) == colnames(Acute)
+
+
+#2. Normalise and find outliers 
+Acute.norm = neqc(Acute)
+
+
+# 4. Collapse into genes #
+exp = merge(Acute.norm$genes, Acute.norm$E,  by = "row.names")
+detect = merge(Acute.norm$genes, Acute.norm$other$Detection,  by = "row.names")
+rownames(exp) = exp$Row.names
+rownames(detect) = exp$Row.names
+exp = exp[,-1]
+detect = detect[,-1]
+colnames(exp)
+Typh_collapsed = WGCNA::collapseRows(exp[,2:ncol(exp)], rowGroup = exp[,1], rowID = row.names(exp), method = "MaxMean")
+Typh_detection = detect[which(rownames(detect) %in% Typh_collapsed$group2row[,"selectedRowID"]),]
+rownames(Typh_detection) = Typh_detection$TargetID
+Typh_detection = Typh_detection[,-c(1)]
+Typh_collapsed = Typh_collapsed$datETcollapsed
+Typh_collapsed = as.data.frame(Typh_collapsed)
+identical(sort(rownames(Typh_collapsed)), sort(rownames(Typh_detection)))
+
+#Batch correct
+modcombat = model.matrix(~TimePoint, data=Acute_targets)
+colnames(Typh_collapsed) == rownames(Acute_targets)
+colnames(Typh_collapsed)
+
+Acute_targets$BATCH = as.factor(Acute_targets$BATCH)
+Acute_targets$TimePoint == as.factor(Acute_targets$TimePoint)
+meta.corrected = sva::ComBat(dat=as.matrix(Typh_collapsed), batch= Acute_targets$BATCH, mod=modcombat)
+
+#Renormalise
+Meta.norm2 =  normalize.quantiles(as.matrix(meta.corrected),copy=F)
+
+#Add in metadata on shedding
+shedding = read.csv("/Users/ab61/Documents/Data Analysis/Enterobacteria/Host GWAS/Oxford_CHIM_stool_blood_temp_all.csv")
+shedding = shedding[which(shedding$study %in% c("T1", "T2")),]
+shedding$uniqueid = gsub(".*_", "", shedding$uniqueid)
+outcome = unique(shedding[,c("uniqueid", "any_stoolpos", "any_bloodpos", "any_fever")])
+outcome[which(outcome$any_fever == 1),"Outcome"] = "Symptomatic"
+outcome[which(outcome$any_fever == 0 & outcome$any_stoolpos == 1),"Outcome"] = "Asymptomatic shedder"
+outcome[which(outcome$any_fever == 0 & outcome$any_stoolpos == 1 & outcome$any_bloodpos == 1),"Outcome"] = "Asymptomatic shedder and bacteraemia"
+outcome[which(is.na(outcome$Outcome)),"Outcome"] = "No shedding"
+Acute_targets = merge(Acute_targets, outcome, by.x = "Part_no", by.y = "uniqueid", all.x = T, all.y = F)
+
+#Filter
+Acute_targets$Study = as.character(Acute_targets$BATCH)
+Acute_targets[which(Acute_targets$BATCH != "T2"),"Study"] = "T1"
+table(Acute_targets$TimePoint, Acute_targets$Outcome)
+
+Det.Filtered = Typh_detection[which(rowSums(Typh_detection > 0.95) >= 14),]
+Meta.Filtered = Meta.norm2[which(row.names(Meta.norm2) %in% rownames(Det.Filtered)),]
+
+#Get rid of anything without a name
+Meta.Filtered = Meta.Filtered[-grep("^LOC[0-9]", row.names(Meta.Filtered)),]
+Meta.Filtered = Meta.Filtered[-grep("ORF", row.names(Meta.Filtered)),]
+
+Acute_targets$Outcome_time = Acute_targets$Outcome
+Acute_targets[which(Acute_targets$TimePoint != "D0"),"Outcome_time"] = paste(Acute_targets[which(Acute_targets$TimePoint != "D0"),"Outcome_time"], "Acute")
+Acute_targets[which(Acute_targets$TimePoint == "D0"),"Outcome_time"] = paste(Acute_targets[which(Acute_targets$TimePoint == "D0"),"Outcome_time"], "Baseline")
+table(Acute_targets$Outcome_time)
+t = as.factor(Acute_targets$Outcome_time)
+c = as.factor(Acute_targets$Vaccine)
+design <- model.matrix(~0+t+c)
+colnames(design) = make.names(colnames(design))
+colnames(design) = gsub("^t", "", colnames(design))
+#0.1358723
+#dupcor = duplicateCorrelation(Meta.Filtered, design, block = Acute_targets$Part_no)
+dupcor = 0.1358723
+fit <- lmFit(Meta.Filtered, design, correlation=dupcor$consensus.correlation)
+summary(decideTests(fit))
+
+
+contrast.matrix <- makeContrasts(
+  Asymptomatic.shedder.Baseline-No.shedding.Baseline,
+  Asymptomatic.shedder.Baseline-Asymptomatic.shedder.and.bacteraemia.Baseline,
+  Asymptomatic.shedder.Baseline-Symptomatic.Baseline,
+  
+  Asymptomatic.shedder.Acute-No.shedding.Acute,
+  Asymptomatic.shedder.Acute-Asymptomatic.shedder.and.bacteraemia.Acute,
+  Asymptomatic.shedder.Acute-Symptomatic.Acute,
+  
+  (Asymptomatic.shedder.Acute-No.shedding.Acute)-(Asymptomatic.shedder.Baseline-No.shedding.Baseline),
+  (Asymptomatic.shedder.Acute-Asymptomatic.shedder.and.bacteraemia.Acute)-(Asymptomatic.shedder.Baseline-Asymptomatic.shedder.and.bacteraemia.Baseline),
+  (Asymptomatic.shedder.Acute-Symptomatic.Acute)-(Asymptomatic.shedder.Baseline-Symptomatic.Baseline),
+  
+  Asymptomatic.shedder.Acute-Asymptomatic.shedder.Baseline,
+  No.shedding.Acute-No.shedding.Baseline,
+  Symptomatic.Acute-Symptomatic.Baseline,
+  Asymptomatic.shedder.and.bacteraemia.Acute - Asymptomatic.shedder.and.bacteraemia.Baseline,
+  
+  levels=design)
+fit2 <- contrasts.fit(fit, contrast.matrix)
+fit2 <- eBayes(fit2)
+
+summary(fit2, coef)
+
+typhoid = c()
+for(i in 1:13){
+  print(i)
+  x = topTable(fit2, coef=i, adjust="BH", number = Inf)
+  print(nrow(x[which(x$adj.P.Val < 0.05),]))
+  print("")
+  typhoid[[i]] = topTable(fit2, coef=i, adjust="BH", number = Inf, confint = T)
+}
+
+names(typhoid) = c("Typhoid_shedder_vs_no_baseline", "Typhoid_shedder_vs_bac_baseline", "Typhoid_shedder_vs_symp_baseline", "Typhoid_shedder_vs_no_acute", "Typhoid_shedder_vs_bac_acute", "Typhoid_shedder_vs_symp_acute", "Typhoid_shedder_vs_no_acute_adj", "Typhoid_shedder_vs_bac_acute_adj", "Typhoid_shedder_vs_symp_acute_adj", "Typhoid_shedder_acute_vs_baseline",  "Typhoid_no_acute_vs_baseline", "Typhoid_symptomatic_acute_vs_baseline", "Typhoid_bac_acute_vs_baseline")
+
+typhoid1 = typhoid
+typh_metadata = Acute_targets
+typh_exp = Meta.Filtered
+save(typhoid1, typh_metadata, typh_exp, file = "Typhoid1.Rdata")
+
+nrow(typhoid1$Typhoid_no_acute_vs_baseline[which(typhoid1$Typhoid_no_acute_vs_baseline$P.Value < 0.05),])
+nrow(typhoid1$Typhoid_shedder_acute_vs_baseline[which(typhoid1$Typhoid_shedder_acute_vs_baseline$P.Value < 0.05),])
+nrow(typhoid1$Typhoid_bac_acute_vs_baseline[which(typhoid1$Typhoid_bac_acute_vs_baseline$P.Value < 0.05),])
+nrow(typhoid1$Typhoid_symptomatic_acute_vs_baseline[which(typhoid1$Typhoid_symptomatic_acute_vs_baseline$P.Value < 0.05),])
+
+nrow(typhoid1$Typhoid_no_acute_vs_baseline[which(abs(typhoid1$Typhoid_no_acute_vs_baseline$logFC) > 0.3),])
+nrow(typhoid1$Typhoid_shedder_acute_vs_baseline[which(abs(typhoid1$Typhoid_shedder_acute_vs_baseline$logFC) > 0.3),])
+nrow(typhoid1$Typhoid_bac_acute_vs_baseline[which(abs(typhoid1$Typhoid_bac_acute_vs_baseline$logFC) > 0.3),])
+nrow(typhoid1$Typhoid_symptomatic_acute_vs_baseline[which(abs(typhoid1$Typhoid_symptomatic_acute_vs_baseline$logFC) > 0.3),])
+
+
+
+#Genes which were more upregulated in acute disease
+intersect(intersect(row.names(typhoid1$Typhoid_shedder_vs_symp_acute_adj[which(typhoid1$Typhoid_shedder_vs_symp_acute_adj$logFC < 0 & typhoid1$Typhoid_shedder_vs_symp_acute_adj$P.Value < 0.05),]), row.names(typhoid$Typhoid_symptomatic_acute_vs_baseline[which(typhoid$Typhoid_symptomatic_acute_vs_baseline$logFC > 0),])), rownames(typhoid$Typhoid_shedder_vs_symp_baseline[which(typhoid$Typhoid_shedder_vs_symp_baseline$logFC < 0),]))
+
+
+
+library(biomaRt)
+mart <- useDataset("hsapiens_gene_ensembl", useMart("ensembl"))
+listAttributes(mart)
+genes = row.names(typhoid1$Typhoid_shedder_vs_no_baseline)
+G_list <- getBM(filters= "hgnc_symbol", attributes= c("hgnc_symbol", "ensembl_gene_id", "chromosome_name", "start_position", "description"),values=genes,mart= mart)
+
+
+i = "CCR3"
+df = merge(as.data.frame(typh_exp[i,]), typh_metadata, by.x = "row.names", by.y = "Sample.ID")
+colnames(df)[2] = "Expression"
+df$TimePoint = gsub("nD7", "TD", df$TimePoint)
+ggplot(df, aes(fill = Outcome, x = TimePoint, y = Expression)) + geom_boxplot() + labs(y = i) 
+
+
+
+#Try again, grouping asymptomatic bacteraemia with asymptomatic
+Acute_targets$Outcome[which(Acute_targets$Outcome == "Asymptomatic shedder and bacteraemia")] = "Asymptomatic shedder"
+Acute_targets$Outcome_time = Acute_targets$Outcome
+Acute_targets[which(Acute_targets$TimePoint != "D0"),"Outcome_time"] = paste(Acute_targets[which(Acute_targets$TimePoint != "D0"),"Outcome_time"], "Acute")
+Acute_targets[which(Acute_targets$TimePoint == "D0"),"Outcome_time"] = paste(Acute_targets[which(Acute_targets$TimePoint == "D0"),"Outcome_time"], "Baseline")
+table(Acute_targets$Outcome_time)
+t = as.factor(Acute_targets$Outcome_time)
+c = as.factor(Acute_targets$Vaccine)
+design <- model.matrix(~0+t+c)
+colnames(design) = make.names(colnames(design))
+colnames(design) = gsub("^t", "", colnames(design))
+#0.1358723
+#dupcor = duplicateCorrelation(Meta.Filtered, design, block = Acute_targets$Part_no)
+dupcor = 0.1358723
+fit <- lmFit(Meta.Filtered, design, correlation=dupcor$consensus.correlation)
+summary(decideTests(fit))
+
+
+contrast.matrix <- makeContrasts(
+  Asymptomatic.shedder.Baseline-No.shedding.Baseline,
+  Asymptomatic.shedder.Baseline-Symptomatic.Baseline,
+  
+  Asymptomatic.shedder.Acute-No.shedding.Acute,
+  Asymptomatic.shedder.Acute-Symptomatic.Acute,
+  
+  (Asymptomatic.shedder.Acute-No.shedding.Acute)-(Asymptomatic.shedder.Baseline-No.shedding.Baseline),
+  (Asymptomatic.shedder.Acute-Symptomatic.Acute)-(Asymptomatic.shedder.Baseline-Symptomatic.Baseline),
+  
+  Asymptomatic.shedder.Acute-Asymptomatic.shedder.Baseline,
+  No.shedding.Acute-No.shedding.Baseline,
+  Symptomatic.Acute-Symptomatic.Baseline,
+  
+  levels=design)
+fit2 <- contrasts.fit(fit, contrast.matrix)
+fit2 <- eBayes(fit2)
+
+summary(fit2, coef)
+
+typhoid = c()
+for(i in 1:9){
+  print(i)
+  x = topTable(fit2, coef=i, adjust="BH", number = Inf)
+  print(nrow(x[which(x$adj.P.Val < 0.05),]))
+  print("")
+  typhoid[[i]] = topTable(fit2, coef=i, adjust="BH", number = Inf, confint = T)
+}
+
+names(typhoid) = c("Typhoid_shedder_vs_no_baseline",  "Typhoid_shedder_vs_symp_baseline", "Typhoid_shedder_vs_no_acute",  "Typhoid_shedder_vs_symp_acute", "Typhoid_shedder_vs_no_acute_adj",  "Typhoid_shedder_vs_symp_acute_adj", "Typhoid_shedder_acute_vs_baseline", "Typhoid_no_acute_vs_baseline", "Typhoid_symp_acute_vs_baseline")
+
+
+nrow(typhoid$Typhoid_no_acute_vs_baseline[which(abs(typhoid$Typhoid_no_acute_vs_baseline$logFC) > 0.1),])
+nrow(typhoid$Typhoid_shedder_acute_vs_baseline[which(abs(typhoid$Typhoid_shedder_acute_vs_baseline$logFC )> 0.1),])
+nrow(typhoid$Typhoid_symp_acute_vs_baseline[which(abs(typhoid$Typhoid_symp_acute_vs_baseline$logFC )> 0.1),])
+
+
+
+
+typh_metadata = Acute_targets
+typh_exp = Meta.Filtered
+typhoid2 = typhoid
+save(typhoid2, typh_metadata, typh_exp, file = "Typhoid2.Rdata")
+
+#### Paratyphoid ####
+P1V_counts  = read.table("Transcriptomics/VAST_P1_countmatrix.txt")
+rownames(P1V_counts) = P1V_counts$Gene
+P1V_counts = P1V_counts[,-1]
+P1V_targets = read.csv("Transcriptomics/P1V_targets.csv")
+colnames(P1V_counts) %in% P1V_targets$SampleID
+
+P1V_counts$Gene = gsub("[.].*", "", rownames(P1V_counts))
+
+library('biomaRt')
+ensembl <- useEnsembl(biomart = "genes")
+ensembl <- useDataset(dataset = "hsapiens_gene_ensembl", mart = ensembl)
+genes <- P1V_counts$Gene
+mart <- useDataset("hsapiens_gene_ensembl", useMart("ensembl"))
+#View(listFilters(mart))
+G_list <- getBM(filters= "ensembl_gene_id", attributes= c("ensembl_gene_id","hgnc_symbol"),values=genes,mart= mart)
+G_list = unique(G_list[which(G_list$transcript_biotype == "protein_coding"),])
+
+P1V_counts = P1V_counts[which(P1V_counts$Gene %in% G_list$ensembl_gene_id),]
+P1V_counts = P1V_counts[-grep("PAR", rownames(P1V_counts)),]
+rownames(P1V_counts) = P1V_counts$Gene
+P1V_counts = P1V_counts[,-283]
+
+P1V_targets$libsize = colSums(P1V_counts)
+P1V_targets = P1V_targets[-which(P1V_targets$SampleID == "VAST6958871"),]
+rownames(P1V_targets) = P1V_targets$SampleID
+
+#Sort out shedders
+
+#VAST
+shedding = read.csv("/Users/ab61/Documents/Data Analysis/Enterobacteria/Host GWAS/Oxford_CHIM_stool_blood_temp_all.csv")
+#VAST match up 3000 and 8000 IDs
+shedding = shedding[which(shedding$study %in% c("VAST")),]
+
+shedding$uniqueid = gsub(".*_", "", shedding$uniqueid)
+outcome = unique(shedding[,c("uniqueid", "any_stoolpos", "any_bloodpos", "any_fever")])
+outcome[which(outcome$any_fever == 1),"Outcome"] = "Symptomatic"
+outcome[which(outcome$any_fever == 0 & outcome$any_stoolpos == 1),"Outcome"] = "Asymptomatic shedder"
+outcome[which(outcome$any_fever == 0 & outcome$any_stoolpos == 1 & outcome$any_bloodpos == 1),"Outcome"] = "Asymptomatic shedder and bacteraemia"
+outcome[which(is.na(outcome$Outcome)),"Outcome"] = "No shedding"
+P1V_targets = merge(P1V_targets, outcome, by.x = "Participant.ID", by.y = "uniqueid", all.x = T, all.y = F)
+
+P1V_targets[which(P1V_targets$Study == "P1"),"Participant.ID"] = P1V_targets[which(P1V_targets$Study == "P1"),"Participant"]
+#P1
+P1 = read.csv("Transcriptomics/P1shedding.csv")
+P1V_targets[which(P1V_targets$Participant.ID %in% P1[which(P1$fever..38.in.21.days == 1),"lab.ID"]),"Outcome"] = "Symptomatic"
+P1V_targets[which(P1V_targets$Participant.ID %in% P1[which(P1$fever..38.in.21.days == 0 & P1$stool_culture == 1),"lab.ID"]),"Outcome"] = "Asymptomatic shedder"
+P1V_targets[which(P1V_targets$Participant.ID %in% P1[which(P1$fever..38.in.21.days == 0 & P1$stool_culture == 1 & P1$days.to.bacteraemia != "."),"lab.ID"]),"Outcome"] = "Asymptomatic shedder and bacteraemia"
+P1V_targets[which(P1V_targets$Participant.ID %in% P1[which(P1$fever..38.in.21.days == 0 & P1$stool_culture == 0 & P1$days.to.bacteraemia == "."),"lab.ID"]),"Outcome"] = "No shedding"
+
+
+
+#DeSeq2
+library(DESeq2)
+comparison1 = "Asymptomatic shedder"
+comparison2 = "Symptomatic"
+study = "P1"
+
+deseq = function(comparison1, comparison2, study){
+met = P1V_targets[which(P1V_targets$Outcome %in%  c(comparison1, comparison2) & P1V_targets$TP == "D0" & P1V_targets$Study == study) ,]
+exp = P1V_counts[,met$SampleID]
+met$Outcome = as.factor(met$Outcome)
+
+ds <- DESeqDataSetFromMatrix(countData=exp, colData=met, design= ~Outcome)
+ds <- DESeq(ds, test="Wald", sfType="poscount")
+r <- results (ds, alpha=0.05, pAdjustMethod ="fdr")
+tT <- r[order(r$padj),] 
+tT <- as.data.frame(tT)
+tT = merge(tT, G_list, by.x = "row.names", by.y = "ensembl_gene_id")
+return(tT)}
+
+P1_asymptomatic_vs_symptomatic = deseq("Asymptomatic shedder", "Symptomatic", "P1")
+VAST_asymptomatic_vs_symptomatic = deseq("Asymptomatic shedder", "Symptomatic", "VAST")
+#View(VAST_asymptomatic_vs_symptomatic)
+#P1_asymptomatic_vs_bac = deseq("Asymptomatic shedder", "Asymptomatic shedder and bacteraemia", "P1")
+VAST_asymptomatic_vs_bac = deseq("Asymptomatic shedder", "Asymptomatic shedder and bacteraemia", "VAST")
+P1_asymptomatic_vs_noshed = deseq("Asymptomatic shedder", "No shedding", "P1")
+VAST_asymptomatic_vs_noshed = deseq("Asymptomatic shedder", "No shedding", "VAST")
+
+#"No shedding"
+#View(P1_asymptomatic_vs_symptomatic)
+
+save(P1V_counts, P1V_targets, P1_asymptomatic_vs_noshed, P1_asymptomatic_vs_symptomatic, VAST_asymptomatic_vs_bac, VAST_asymptomatic_vs_noshed, VAST_asymptomatic_vs_symptomatic, file = "paratyphoid1.Rdata")
+
+#Try combining asymptomatics
+P1V_targets[which(P1V_targets$Outcome == "Asymptomatic shedder and bacteraemia"),"Outcome"] = "Asymptomatic shedder"
+table(P1V_targets$Outcome)
+
+P1_asymptomatic_vs_symptomatic = deseq("Asymptomatic shedder", "Symptomatic", "P1")
+VAST_asymptomatic_vs_symptomatic = deseq("Asymptomatic shedder", "Symptomatic", "VAST")
+P1_asymptomatic_vs_noshed = deseq("Asymptomatic shedder", "No shedding", "P1")
+VAST_asymptomatic_vs_noshed = deseq("Asymptomatic shedder", "No shedding", "VAST")
+
+save(P1V_counts, P1V_targets, P1_asymptomatic_vs_noshed, P1_asymptomatic_vs_symptomatic, VAST_asymptomatic_vs_noshed, VAST_asymptomatic_vs_symptomatic, file = "paratyphoid2.Rdata")
+
+#### Meta-analysis ####
+
+#Symptomatic vs asymptomatic
+load(file = "Typhoid1.Rdata")
+load(file = "ShigellaSalmonella.Rdata")
+load(file = "ETEC.Rdata")
+# β ± 1.96 x SE
+shigella = shigella_control_vs_symp
+shigella$CI.L = shigella$log2FoldChange - 1.96*shigella$lfcSE
+shigella$CI.R = shigella$log2FoldChange + 1.96*shigella$lfcSE
+shigella = shigella[,c("Symbol", "pvalue", "log2FoldChange", "CI.L", "CI.R")]
+shigella$Pathogen = "Shigella"
+
+salmonella = salmonella_control_vs_symp
+salmonella$CI.L = salmonella$log2FoldChange - 1.96*salmonella$lfcSE
+salmonella$CI.R = salmonella$log2FoldChange + 1.96*salmonella$lfcSE
+salmonella = salmonella[,c("Symbol", "pvalue", "log2FoldChange", "CI.L", "CI.R")]
+salmonella$Pathogen = "Salmonella"
+
+typhoid = typhoid1$Typhoid_shedder_vs_symp_acute
+typhoid$Symbol = rownames(typhoid)
+typhoid$logFC = -typhoid$logFC
+typhoid = typhoid[,c("Symbol", "P.Value", "logFC", "CI.L", "CI.R")]
+typhoid$Pathogen = "Typhoid"
+colnames(typhoid) = colnames(shigella)
+
+etec_asymptomatic_vs_symptomatic_acute$Gene = rownames(etec_asymptomatic_vs_symptomatic_acute)
+etec = etec_asymptomatic_vs_symptomatic_acute[,c("Gene", "P.Value", "logFC", "CI.L", "CI.R")]
+etec$logFC = -etec$logFC
+etec$Pathogen = "ETEC"
+colnames(etec) = colnames(typhoid)
+
+difflist = list(shigella = shigella, salmonella = salmonella, typhoid = typhoid, etec = etec)
+
+library(MetaVolcanoR)
+
+colnames(shigella)
+meta_degs_rem <- rem_mv(diffexp=difflist,
+                        pcriteria="pvalue",
+                        foldchangecol='log2FoldChange', 
+                        genenamecol='Symbol',
+                        geneidcol=NULL,
+                        collaps=FALSE,
+                        llcol='CI.L',
+                        rlcol='CI.R',
+                        vcol=NULL, 
+                        cvar=TRUE,
+                        metathr=0.01,
+                        jobname="MetaVolcano",
+                        outputfolder=".", 
+                        draw='HTML',
+                        ncores=4)
+
+across = names(which(table(summary$Symbol) == 4))
+for(i in names(difflist)){
+ difflist[[i]] = difflist[[i]][which(difflist[[i]]$Symbol %in% across),]
+}
+
+meta_degs_rem2 <- rem_mv(diffexp=difflist,
+                        pcriteria="pvalue",
+                        foldchangecol='log2FoldChange', 
+                        genenamecol='Symbol',
+                        geneidcol=NULL,
+                        collaps=FALSE,
+                        llcol='CI.L',
+                        rlcol='CI.R',
+                        vcol=NULL, 
+                        cvar=TRUE,
+                        metathr=0.01,
+                        jobname="MetaVolcano",
+                        outputfolder=".", 
+                        draw='HTML',
+                        ncores=4)
+
+
+View(meta_degs_rem2@metaresult)
+meta_degs_rem2@MetaVolcano
+result = meta_degs_rem2@metaresult
+result$padj = p.adjust(result$randomP, "fdr")
+result$Symbol
+
+result = merge(result, shigella_control_vs_symp[,c("Symbol", "Description")], by = "Symbol")
+ensembl <- useEnsembl(biomart = "genes", mirror = "asia")
+ensembl <- useDataset(dataset = "hsapiens_gene_ensembl", mart = ensembl)
+genes <- result$Symbol
+mart <- useDataset("hsapiens_gene_ensembl", useMart("ensembl"))
+listAttributes(mart)
+G_list <- getBM(filters= "hgnc_symbol", attributes= c("hgnc_symbol", "ensembl_gene_id", "chromosome_name", "start_position", "description"),values=genes,mart= mart)
+
+cat(result$Symbol, sep = "\n", file = "genelist.txt")
+result = merge(result, G_list, by.x = "Symbol", by.y = "hgnc_symbol")
+
+cat(result[which(result$randomP < 0.05 & result$randomSummary < 0 & result$signcon == -4),"ensembl_gene_id"], sep = "\n")
+
+cat(result[which(result$randomP < 0.05 & result$randomSummary > 0 & result$signcon == 4),"ensembl_gene_id"], sep = "\n")
+
+summary = rbind(salmonella, shigella, typhoid, etec)
+summary$Symbol = gsub(" .*", "", summary$Symbol)
+colnames(summary)
+library(ggplot2)
+subset = result[which(result$randomP < 0.005 & abs(result$signcon) == 4),"Symbol"]
+meta_subset = result[which(result$randomP < 0.005 & abs(result$signcon) == 4),]
+ggplot(summary[which(summary$Symbol %in% subset),], aes(x = log2FoldChange, y = pvalue, group = Symbol, fill = Symbol)) + geom_polygon(alpha = 0.2) + guides(fill = F) + theme_minimal() + geom_point(data = meta_subset, aes(x = randomSummary, y = -log10(randomP)))
+
+acute_result = result
+
+#Genes associated with resistance at baseline
+typhoid = typhoid1$Typhoid_shedder_vs_symp_baseline
+typhoid$Symbol = rownames(typhoid)
+typhoid$logFC = -typhoid$logFC
+typhoid = typhoid[,c("Symbol", "P.Value", "logFC", "CI.L", "CI.R")]
+typhoid$Pathogen = "Typhoid"
+colnames(typhoid) = colnames(shigella)
+
+etec_asymptomatic_vs_symptomatic_baseline$Gene = rownames(etec_asymptomatic_vs_symptomatic_baseline)
+etec =etec_asymptomatic_vs_symptomatic_baseline[,c("Gene", "P.Value", "logFC", "CI.L", "CI.R")]
+etec$logFC = -etec$logFC
+etec$Pathogen = "ETEC"
+colnames(etec) = colnames(typhoid)
+
+load("paratyphoid1.Rdata")
+paratyphoid = P1_asymptomatic_vs_symptomatic
+paratyphoid$Symbol = paratyphoid$hgnc_symbol  
+paratyphoid$CI.L = paratyphoid$log2FoldChange - 1.96*paratyphoid$lfcSE
+paratyphoid$CI.R = paratyphoid$log2FoldChange + 1.96*paratyphoid$lfcSE
+paratyphoid = shigella[,c("Symbol", "pvalue", "log2FoldChange", "CI.L", "CI.R")]
+paratyphoid$Pathogen = "Paratyphoid"
+
+typhoid2 = VAST_asymptomatic_vs_symptomatic
+typhoid2$Symbol = typhoid2$hgnc_symbol  
+typhoid2$CI.L = typhoid2$log2FoldChange - 1.96*typhoid2$lfcSE
+typhoid2$CI.R = typhoid2$log2FoldChange + 1.96*typhoid2$lfcSE
+typhoid2 = shigella[,c("Symbol", "pvalue", "log2FoldChange", "CI.L", "CI.R")]
+typhoid2$Pathogen = "Typhoid (VAST)"
+summary2 = rbind(typhoid2, etec, typhoid, paratyphoid)
+
+difflist = list(typhoid = typhoid, paratyphoid = paratyphoid, typhoid2 = typhoid2) #etec = etec, 
+
+library(MetaVolcanoR)
+
+across = names(which(table(c(typhoid$Symbol, paratyphoid$Symbol, typhoid2$Symbol)) == 3))
+for(i in names(difflist)){
+  difflist[[i]] = difflist[[i]][which(difflist[[i]]$Symbol %in% across),]
+}
+
+meta_degs_rem2 <- rem_mv(diffexp=difflist,
+                         pcriteria="pvalue",
+                         foldchangecol='log2FoldChange', 
+                         genenamecol='Symbol',
+                         geneidcol=NULL,
+                         collaps=FALSE,
+                         llcol='CI.L',
+                         rlcol='CI.R',
+                         vcol=NULL, 
+                         cvar=TRUE,
+                         metathr=0.01,
+                         jobname="MetaVolcano",
+                         outputfolder=".", 
+                         draw='HTML',
+                         ncores=4)
+
+meta_degs_rem2@MetaVolcano
+baseline_result = meta_degs_rem2@metaresult
+#ensembl <- useEnsembl(biomart = "genes", mirror = "asia")
+#ensembl <- useDataset(dataset = "hsapiens_gene_ensembl", mart = ensembl)
+#genes <- baseline_result$Symbol
+#listAttributes(ensembl)
+#G_list <- getBM(filters= "hgnc_symbol", attributes= c("hgnc_symbol", "ensembl_gene_id", "chromosome_name", "start_position", "description"),values=genes,mart= ensembl)
+baseline_result = merge(baseline_result, G_list, by.x = "Symbol", by.y = "hgnc_symbol")
+
+baseline_result = baseline_result[-grep("PATCH", baseline_result$chromosome_name),]
+baseline_result = baseline_result[which(baseline_result$chromosome_name %in% c(1:22, "X")),]
+baseline_result$chromosome_name =as.numeric(gsub("X", 23, as.character(baseline_result$chromosome_name )))
+colnames(baseline_result)[14:15] = c("chromosome", "start")
+baseline_result$cum = NA
+baseline_result = baseline_result[order(baseline_result$chromosome, baseline_result$start),]
+baseline_result$start = baseline_result$start/1000
+baseline_result$cum = baseline_result$start
+for(i in 2:23){
+  baseline_result[which(baseline_result$chromosome == i),"cum"] = max(baseline_result[which(baseline_result$chromosome == (i-1)),"cum"]) + baseline_result[which(baseline_result$chromosome == i),"cum"]
+}
+baseline_result[which(baseline_result$signcon == 4 & baseline_result$randomP < 0.05),"Color2"] = "Higher in those who became symptomatic after exposure"
+baseline_result[which(baseline_result$signcon == -4 & baseline_result$randomP < 0.05),"Color2"] = "Higher in those who were asymptomatic shedders after exposure"
+library(RColorBrewer)
+colors = c(rep(c("#FFF1DB", "#D4BDAC"), 12)[1:23], colorspace::lighten("#EF5A6F", 0.3),  colorspace::lighten("#536493", 0.3), "#EF5A6F", "#536493")
+colors
+
+colors = c(rep(c("#F6F8D5", colorspace::darken("#F6F8D5", 0.3)), 12)[1:23],"#E53888",  "#4F959D", "#AC1754", "#205781")
+
+baseline_result$Interesting = NA
+genes = c("IL12RB2", "FCRL5", "SLAMF1", "SLAMF7", "FCGR2B", "CASP8", "MAEA",  "HLA-DOB", "TAGAP", "LSP1", "VAC14", "CCR10", "CLEC11A", "KIR3DL2", "MCOLN2","LYZ")
+baseline_result[which(baseline_result$Symbol %in% genes),"Interesting"] = "Yes"
+
+ggplot(baseline_result, aes(x = cum, y = -log10(randomP))) + 
+  geom_point(aes(color = factor(chromosome))) + theme_minimal() + 
+  scale_color_manual(values=colors) + 
+  geom_point(data = baseline_result[which(!is.na(baseline_result$Color2)),], aes(color = Color2))  + 
+  geom_point(data = baseline_result[which(!is.na(baseline_result$Interesting)),], aes(fill= Color2), shape = 21, color = "black") + 
+  scale_fill_manual(values=colors[26:28]) #+ 
+ # geom_text(data = baseline_result[which(!is.na(baseline_result$Interesting)),], aes(label = Symbol),  color = "black")
+
+#Alternative
+baseline_result$y = -log10(baseline_result$randomP)
+baseline_result[which(baseline_result$randomSummary < 0),"y"] = -baseline_result[which(baseline_result$randomSummary < 0),"y"]
+#Colors
+baseline_result[which(baseline_result$randomSummary < 0),"Color"] = "Down"
+baseline_result[which(baseline_result$randomSummary > 0),"Color"] = "Up"
+baseline_result[which(baseline_result$chromosome %in% seq(from = 2, to = 22, by = 2)),"Color"] = paste(baseline_result[which(baseline_result$chromosome %in% seq(from = 2, to = 22, by = 2)),"Color"], "2")
+unique(baseline_result$Color)
+baseline_result[which(baseline_result$signcon == 3 & baseline_result$randomP < 0.05),"Color"] = "Up signif"
+baseline_result[which(baseline_result$signcon == -3 & baseline_result$randomP < 0.05),"Color"] = "Down signif"
+#baseline_result[which(baseline_result$Symbol %in% c("TNFRSF8", "FCGR2B", "CD86", "TFRC" ,"ERAP2", "LSP1", "LYZ", "STAT6", "IL16", "CD19", "VAC14", "CCE10", "ICAM3", "CD37", "IL17RA", "IL2RG")),"Color"] = paste(baseline_result[which(baseline_result$Symbol %in% c("TNFRSF8", "FCGR2B", "CD86", "TFRC" ,"ERAP2", "LSP1", "LYZ", "STAT6", "IL16", "CD19", "VAC14", "CCE10", "ICAM3", "CD37", "IL17RA", "IL2RG")),"Color"], "Interesting")
+baseline_result[which(baseline_result$Symbol %in% genes),"Color"] = paste(baseline_result[which(baseline_result$Symbol %in% genes),"Color"], "Interesting")
+
+
+
+col = c("#F6F8D5", "#D5E5D5", "#4F959D", "#205781", "#FFF7F3", "#FAD0C4", "#E53888", "#AC1754")
+col = c("#F6F8D5", "#98D2C0", "#4F959D", "#205781", "#F7A8C4", "#F37199", "#E53888", "#AC1754", "white")
+library(ggrepel)
+
+#Add chromosome labels
+for(i in unique(baseline_result$chromosome)){
+  pos = quantile(baseline_result[which(baseline_result$chromosome == i),"cum"], p = 0.5, type = 1)
+  baseline_result[which(baseline_result$cum == pos),"Chr_label"] = i
+}
+baseline_result[which(baseline_result$Chr_label %in% c(15, 17,"19", "21")),"Chr_label"] = NA
+baseline_result[which(baseline_result$Chr_label %in% c("23")),"Chr_label"] = "X"
+baseline_result[which(baseline_result$Color == "Up 2 Interesting"),"Color"] = "Up 2"
+
+ggplot(baseline_result, aes(x = cum, y = y)) + 
+  geom_point(aes(color = factor(Color))) + theme_minimal() + 
+  scale_color_manual(values=col)+ scale_fill_manual(values=col) + geom_hline(yintercept = 0, color = "white", size = 2) + geom_hline(yintercept = 0) + 
+  geom_point(data = baseline_result[which(!is.na(baseline_result$Interesting)),], shape = 21, color = "black") + 
+  geom_text_repel(data = baseline_result[which(!is.na(baseline_result$Interesting )& baseline_result$randomSummary > 0),], aes(label = Symbol),  color = "black", nudge_y = 0.2) + 
+  geom_text_repel(data = baseline_result[which(!is.na(baseline_result$Interesting )& baseline_result$randomSummary < 0),], aes(label = Symbol),  color = "black", nudge_y = -0.2) + geom_text(aes(label = Chr_label, y = -0.2)) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) + labs(y = "-log10(p value)", color = "Significance") + guides(fill = F, color = F)
+
+ggsave(file = "Human_analysis.png", width = 8, height = 5)
+
+
+#Separate png svg figures
+ggplot(baseline_result, aes(x = cum, y = y)) + 
+  geom_point(aes(color = factor(Color))) + theme_minimal() + 
+  scale_color_manual(values=col)+ scale_fill_manual(values=col[c(4,8)]) + geom_hline(yintercept = 0, color = "white", size = 2) + geom_hline(yintercept = 0) + 
+  geom_point(data = baseline_result[which(!is.na(baseline_result$Interesting)),], aes(fill= Color), shape = 21, color = "black") +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) + labs(y = "-log10(p value)", color = "Significance") + guides(fill = F) + ylim(c(min(baseline_result$y)-0.1, max(baseline_result$y)+0.1))
+ggsave(file = "Human_analysis1.png", width = 8, height = 5)
+
+
+
+x = ggplot(baseline_result, aes(x = cum, y = y)) + 
+  geom_point(aes(color = factor(Color)), data = baseline_result[which(!duplicated(baseline_result$Color)),]) + theme_minimal() + 
+  scale_color_manual(values=col)+ scale_fill_manual(values=col[c(4,8)]) + geom_hline(yintercept = 0, color = "white", size = 2) + geom_hline(yintercept = 0) + 
+  geom_text_repel(data = baseline_result[which(!is.na(baseline_result$Interesting )& baseline_result$randomSummary > 0),], aes(label = Symbol),  color = "black", nudge_y = 0.2) + 
+  geom_text_repel(data = baseline_result[which(!is.na(baseline_result$Interesting )& baseline_result$randomSummary < 0),], aes(label = Symbol),  color = "black", nudge_y = -0.2) + geom_text(aes(label = Chr_label, y = -0.2)) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) + labs(y = "-log10(p value)", color = "Significance") + guides(fill = F) + ylim(c(min(baseline_result$y)-0.1, max(baseline_result$y)+0.1))
+x
+ggsave(x, file = "Human_analysis2.svg", width = 8, height = 5)
+
+#scale_fill_manual(values=colors[26:28]) 
+
+
+
+#Simple volcano plots?
+baseline_result$Color2 =gsub(" 2", "", baseline_result$Color)
+baseline_result$Color2 =gsub(" Interesting", "", baseline_result$Color2)
+ggplot(baseline_result, aes(x = randomSummary, y = -log10(randomP), color = Color2)) + geom_point() + scale_color_manual(values = c("#98D2C0",  "#4F959D", "#F7A8C4", "#E53888")) + theme_classic() + guides(color = F)
+
+c("#F6F8D5", "#98D2C0", "#4F959D", "#205781", "#F7A8C4", "#F37199", "#E53888", "#AC1754")
+
+
+acute_result$Color = paste(acute_result$randomP < 0.05 & abs(acute_result$signcon) == 4, acute_result$randomSummary < 0)
+ggplot(acute_result, aes(x = randomSummary, y = -log10(randomP), color = Color)) + geom_point() + scale_color_manual(values = c( "#F7A8C4","#98D2C0","#E53888",  "#4F959D")) + theme_classic()+ guides(color = F) + labs(x = "log(fold change)", y = "-log10(p)")

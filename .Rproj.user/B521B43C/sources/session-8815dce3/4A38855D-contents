@@ -1,0 +1,50 @@
+#### Metagenomics dataframe ####
+PRJNA976726_metadata <- read.csv("~/Documents/Data Analysis/Cholera/ICP1/PRJNA976726_metadata.csv")
+PRJNA976726 <- read.csv("~/Documents/Data Analysis/Cholera/ICP1/PRJNA976726.txt")
+PRJNA976726$Sample.Name %in% PRJNA976726_metadata$Sample
+PRJNA976726 = merge(PRJNA976726[,c("Run", "Sample.Name", "Collection_Date")], PRJNA976726_metadata, by.x = "Sample.Name", by.y = "Sample")
+PRJNA976726$Study = "Madi et al. 2023, bioRxiv"
+
+library(readxl)
+PRJNA608678 <- read.csv("~/Documents/Data Analysis/Cholera/ICP1/PRJNA608678.txt")
+PRJNA608678_Levade_2020 <- read_excel("~/Documents/Data Analysis/Cholera/ICP1/PRJNA608678_Levade_2020.xlsx", skip = 3)
+PRJNA608678_Levade_2020$`Subject ID` %in% PRJNA608678$Sample.Name
+library(ggplot2)
+ggplot(PRJNA608678_Levade_2020, aes(x = `Blood group O`, y = log(`Baseline vibriocidal titer on day 2 Ogawa`))) + geom_boxplot()
+
+
+expanded = PRJNA608678_Levade_2020[0,]
+for(i in 1:nrow(PRJNA608678_Levade_2020)){
+  x = strsplit(as.character(PRJNA608678_Levade_2020[i,"Day sampled"]), split = ", ")[[1]]
+  
+  for(j in x){
+    print(j)
+    new = as.data.frame(PRJNA608678_Levade_2020[i,])
+    new$`Day sampled` = j
+    expanded = rbind(expanded, new)
+  }}
+expanded$Sample.Name = paste0(expanded$`Subject ID`, gsub("Day ", "d", expanded$`Day sampled`))
+PRJNA608678 = merge(PRJNA608678[,c("Run", "Sample.Name", "Collection_Date")], expanded, by = "Sample.Name")
+PRJNA608678$Study = "Levade et al. 2021, JID" 
+
+PRJNA668607 <- read.csv("~/Documents/Data Analysis/Cholera/ICP1/ PRJNA668607.txt")
+PRJNA668607_metadata <- read_excel("~/Documents/Data Analysis/Cholera/ICP1/ PRJNA668607_metadata.xlsx", skip = 3)
+PRJNA668607$Sample.Name
+PRJNA668607_metadata$ID = gsub(".*/", "",PRJNA668607_metadata$ID)
+PRJNA668607 = merge(PRJNA668607[,c("Run", "Sample.Name", "Collection_Date")], PRJNA668607_metadata, by.x = "Sample.Name", by.y = "ID")
+PRJNA668607$Study = "Levade et al. 2021, mSystems"
+library(dplyr)
+colnames(PRJNA668607) = gsub("Age_in_Years", "Age", colnames(PRJNA668607)) %>% gsub("Day sampled after index case presentation", "Day sampled", .) %>% gsub("Symptom outcome", "Symptoms", .)
+colnames(PRJNA608678)= gsub("Age_in_Years", "Age",colnames(PRJNA608678)) %>% gsub("Day sampled after index case presentation", "Day sampled", .) %>% gsub("Symptom outcome", "Symptoms", .)
+colnames(PRJNA976726)= gsub("Age_in_Years", "Age", colnames(PRJNA976726)) %>% gsub("Day sampled after index case presentation", "Day sampled", .) %>% gsub("Symptom outcome", "Symptoms", .)
+summary = rbind.fill(PRJNA668607,PRJNA608678,PRJNA976726)
+table(duplicated(summary$Run))
+cat(summary$Run)
+
+
+ENA_download <- read.delim("~/Documents/Data Analysis/Cholera/ICP1/ENA_download.sh", header=FALSE)
+ENA_download$acc = gsub(".*/", "", ENA_download$V1) %>% gsub("_.*", "", .)
+ENA_download = as.data.frame(ENA_download[grep("_1.fastq.gz", ENA_download$V1),])
+ENA_download$V2 = gsub("_1.fastq.gz", "_2.fastq.gz", ENA_download$V1)
+ENA_download = ENA_download[,c("acc", "V1", "V2")]
+write.table(ENA_download, file = "ENA_download.tab", quote = F, col.names = F, row.names = F, sep = "\t")
