@@ -1,6 +1,6 @@
 --- 
 title: "The Bacterial Genomics Book"
-author: "Amber Baton"
+author: "Amber Barton"
 date: "`r Sys.Date()`"
 site: bookdown::bookdown_site
 documentclass: book

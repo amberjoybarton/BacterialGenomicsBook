@@ -5,28 +5,22 @@
   <meta charset="utf-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>Chapter 8 Rooting trees | The Bacterial Genomics Book</title>
-  <meta name="description" content="<p>This is a minimal example of using the bookdown package to write a book.
-The HTML output format for this example is bookdown::gitbook,
-set in the _output.yml file.</p>" />
+  <meta name="description" content="This book outlines basic analyses for bacterial genomics." />
   <meta name="generator" content="bookdown 0.44 and GitBook 2.6.7" />
 
   <meta property="og:title" content="Chapter 8 Rooting trees | The Bacterial Genomics Book" />
   <meta property="og:type" content="book" />
   
-  <meta property="og:description" content="<p>This is a minimal example of using the bookdown package to write a book.
-The HTML output format for this example is bookdown::gitbook,
-set in the _output.yml file.</p>" />
+  <meta property="og:description" content="This book outlines basic analyses for bacterial genomics." />
   <meta name="github-repo" content="rstudio/bookdown-demo" />
 
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="Chapter 8 Rooting trees | The Bacterial Genomics Book" />
   
-  <meta name="twitter:description" content="<p>This is a minimal example of using the bookdown package to write a book.
-The HTML output format for this example is bookdown::gitbook,
-set in the _output.yml file.</p>" />
+  <meta name="twitter:description" content="This book outlines basic analyses for bacterial genomics." />
   
 
-<meta name="author" content="Amber Baton" />
+<meta name="author" content="Amber Barton" />
 
 
 <meta name="date" content="2025-10-19" />
@@ -37,7 +31,7 @@ set in the _output.yml file.</p>" />
   
   
 <link rel="prev" href="building-trees.html"/>
-<link rel="next" href="references.html"/>
+
 <script src="libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.4.6/dist/fuse.min.js"></script>
 <link href="libs/gitbook-2.6.7/css/style.css" rel="stylesheet" />
@@ -143,7 +137,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
       <nav role="navigation">
 
 <ul class="summary">
-<li><a href="./">A Minimal Book Example</a></li>
+<li><a href="./">The Bacterial Genomics Book</a></li>
 
 <li class="divider"></li>
 <li class="chapter" data-level="1" data-path="index.html"><a href="index.html"><i class="fa fa-check"></i><b>1</b> Learning the basics</a>
@@ -204,7 +198,6 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <li class="chapter" data-level="8.3.2" data-path="rooting-trees.html"><a href="rooting-trees.html#bactdating"><i class="fa fa-check"></i><b>8.3.2</b> BactDating</a></li>
 </ul></li>
 </ul></li>
-<li class="chapter" data-level="" data-path="references.html"><a href="references.html"><i class="fa fa-check"></i>References</a></li>
 <li class="divider"></li>
 <li><a href="https://github.com/rstudio/bookdown" target="blank">Published with bookdown</a></li>
 
@@ -273,21 +266,21 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <td align="left">sample_1</td>
 <td align="left">1990-01-01</td>
 <td align="right">1990</td>
-<td align="left">B</td>
-<td align="left">F</td>
+<td align="left">C</td>
+<td align="left">E</td>
 </tr>
 <tr class="even">
 <td align="left">sample_2</td>
 <td align="left">1991-01-01</td>
 <td align="right">1991</td>
-<td align="left">C</td>
-<td align="left">F</td>
+<td align="left">A</td>
+<td align="left">E</td>
 </tr>
 <tr class="odd">
 <td align="left">sample_3</td>
 <td align="left">1992-01-01</td>
 <td align="right">1992</td>
-<td align="left">B</td>
+<td align="left">C</td>
 <td align="left">F</td>
 </tr>
 <tr class="even">
@@ -301,15 +294,15 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <td align="left">sample_5</td>
 <td align="left">1994-01-01</td>
 <td align="right">1994</td>
-<td align="left">C</td>
+<td align="left">B</td>
 <td align="left">F</td>
 </tr>
 <tr class="even">
 <td align="left">sample_6</td>
 <td align="left">1995-01-01</td>
 <td align="right">1995</td>
-<td align="left">B</td>
-<td align="left">D</td>
+<td align="left">C</td>
+<td align="left">F</td>
 </tr>
 </tbody>
 </table>
@@ -326,11 +319,11 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <p><img src="_main_files/figure-html/unnamed-chunk-40-1.png" width="672" /></p>
 <pre><code>## $rate
 ##     date 
-## 10.33466 
+## 9.162776 
 ## 
 ## $ori
 ## (Intercept) 
-##     1975.55 
+##    1962.519 
 ## 
 ## $pvalue
 ## [1] 0</code></pre>
@@ -345,8 +338,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
           </div>
         </div>
       </div>
-<a href="building-trees.html" class="navigation navigation-prev " aria-label="Previous page"><i class="fa fa-angle-left"></i></a>
-<a href="references.html" class="navigation navigation-next " aria-label="Next page"><i class="fa fa-angle-right"></i></a>
+<a href="building-trees.html" class="navigation navigation-prev navigation-unique" aria-label="Previous page"><i class="fa fa-angle-left"></i></a>
+
     </div>
   </div>
 <script src="libs/gitbook-2.6.7/js/app.min.js"></script>
