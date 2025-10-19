@@ -29,7 +29,7 @@ set in the _output.yml file.</p>" />
 <meta name="author" content="Amber Baton" />
 
 
-<meta name="date" content="2025-09-26" />
+<meta name="date" content="2025-10-19" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -186,7 +186,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <li class="chapter" data-level="6.4" data-path="alignments.html"><a href="alignments.html#detecting-recombination"><i class="fa fa-check"></i><b>6.4</b> Detecting recombination</a></li>
 <li class="chapter" data-level="6.5" data-path="alignments.html"><a href="alignments.html#masking-regions"><i class="fa fa-check"></i><b>6.5</b> Masking regions</a></li>
 <li class="chapter" data-level="6.6" data-path="alignments.html"><a href="alignments.html#coregene"><i class="fa fa-check"></i><b>6.6</b> Core gene alignments</a></li>
-<li class="chapter" data-level="6.7" data-path="alignments.html"><a href="alignments.html#snp-alignment"><i class="fa fa-check"></i><b>6.7</b> SNP alignment</a></li>
+<li class="chapter" data-level="6.7" data-path="alignments.html"><a href="alignments.html#snpalignment"><i class="fa fa-check"></i><b>6.7</b> SNP alignment</a></li>
 <li class="chapter" data-level="6.8" data-path="alignments.html"><a href="alignments.html#vcf-conversion"><i class="fa fa-check"></i><b>6.8</b> VCF conversion</a></li>
 </ul></li>
 <li class="chapter" data-level="7" data-path="building-trees.html"><a href="building-trees.html"><i class="fa fa-check"></i><b>7</b> Building trees</a>
@@ -200,8 +200,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <li class="chapter" data-level="8.2" data-path="rooting-trees.html"><a href="rooting-trees.html#midpoint"><i class="fa fa-check"></i><b>8.2</b> Midpoint</a></li>
 <li class="chapter" data-level="8.3" data-path="rooting-trees.html"><a href="rooting-trees.html#molecular-clock"><i class="fa fa-check"></i><b>8.3</b> Molecular clock</a>
 <ul>
-<li class="chapter" data-level="8.3.1" data-path="rooting-trees.html"><a href="rooting-trees.html#bactdating"><i class="fa fa-check"></i><b>8.3.1</b> BactDating</a></li>
-<li class="chapter" data-level="8.3.2" data-path="rooting-trees.html"><a href="rooting-trees.html#treetime"><i class="fa fa-check"></i><b>8.3.2</b> TreeTime</a></li>
+<li class="chapter" data-level="8.3.1" data-path="rooting-trees.html"><a href="rooting-trees.html#treetime"><i class="fa fa-check"></i><b>8.3.1</b> TreeTime</a></li>
+<li class="chapter" data-level="8.3.2" data-path="rooting-trees.html"><a href="rooting-trees.html#bactdating"><i class="fa fa-check"></i><b>8.3.2</b> BactDating</a></li>
 </ul></li>
 </ul></li>
 <li class="chapter" data-level="" data-path="references.html"><a href="references.html"><i class="fa fa-check"></i>References</a></li>
@@ -242,17 +242,42 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 </div>
 <div id="molecular-clock" class="section level2 hasAnchor" number="8.3">
 <h2><span class="header-section-number">8.3</span> Molecular clock<a href="rooting-trees.html#molecular-clock" class="anchor-section" aria-label="Anchor link to header"></a></h2>
-<div id="bactdating" class="section level3 hasAnchor" number="8.3.1">
-<h3><span class="header-section-number">8.3.1</span> BactDating<a href="rooting-trees.html#bactdating" class="anchor-section" aria-label="Anchor link to header"></a></h3>
 <p>This method finds the root most consistent with the sampling dates of the sequences. This is the method used by <a href="https://beast.community/">BEAST</a> and <a href="https://www.beast2.org/">BEAST2</a>. However here we demonstrate two quicker methods of generating a time-scaled phylogeny.</p>
-<p>The R package <a href="https://github.com/xavierdidelot/BactDating">BactDating</a> can achieve this:</p>
-<div class="sourceCode" id="cb33"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb33-1"><a href="rooting-trees.html#cb33-1" tabindex="-1"></a><span class="fu">library</span>(ape)</span>
-<span id="cb33-2"><a href="rooting-trees.html#cb33-2" tabindex="-1"></a><span class="fu">library</span>(BactDating)</span>
-<span id="cb33-3"><a href="rooting-trees.html#cb33-3" tabindex="-1"></a>tree <span class="ot">=</span> <span class="fu">read.tree</span>(<span class="st">&quot;fast.tree&quot;</span>)</span></code></pre></div>
-<p><img src="_main_files/figure-html/unnamed-chunk-36-1.png" width="672" /></p>
+<div id="treetime" class="section level3 hasAnchor" number="8.3.1">
+<h3><span class="header-section-number">8.3.1</span> TreeTime<a href="rooting-trees.html#treetime" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<p><a href="https://treetime.readthedocs.io/en/latest/tutorials.html">Treetime</a> is a command line tool that can also be used to estimate a time-scaled phylogeny. In this case you will need your tree, your alignment, and your metadata in csv format.</p>
+<div class="sourceCode" id="cb33"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb33-1"><a href="rooting-trees.html#cb33-1" tabindex="-1"></a><span class="ex">treetime</span> <span class="at">--tree</span> fast.tree <span class="at">--dates</span> metadata.csv <span class="at">--outdir</span> treetime_results <span class="at">--date-column</span> date <span class="at">--name-column</span> ID <span class="at">--aln</span> snps.aln</span></code></pre></div>
+</div>
+<div id="bactdating" class="section level3 hasAnchor" number="8.3.2">
+<h3><span class="header-section-number">8.3.2</span> BactDating<a href="rooting-trees.html#bactdating" class="anchor-section" aria-label="Anchor link to header"></a></h3>
+<p>The R package <a href="https://github.com/xavierdidelot/BactDating">BactDating</a> can also reroot a tree.</p>
+<div class="sourceCode" id="cb34"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb34-1"><a href="rooting-trees.html#cb34-1" tabindex="-1"></a><span class="fu">library</span>(ape)</span>
+<span id="cb34-2"><a href="rooting-trees.html#cb34-2" tabindex="-1"></a><span class="fu">library</span>(BactDating)</span>
+<span id="cb34-3"><a href="rooting-trees.html#cb34-3" tabindex="-1"></a>tree <span class="ot">=</span> <span class="fu">read.tree</span>(<span class="st">&quot;fast.tree&quot;</span>)</span></code></pre></div>
+<p><img src="_main_files/figure-html/unnamed-chunk-37-1.png" width="672" /></p>
 <p>You will need a data frame containing the dates. You can use the lubridate package to convert dates in YYYY-MM-DD format to decimal dates.</p>
-<div class="sourceCode" id="cb34"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb34-1"><a href="rooting-trees.html#cb34-1" tabindex="-1"></a><span class="fu">library</span>(lubridate)</span>
-<span id="cb34-2"><a href="rooting-trees.html#cb34-2" tabindex="-1"></a>metadata<span class="sc">$</span>decimaldate <span class="ot">=</span> <span class="fu">decimal_date</span>(df<span class="sc">$</span>date)</span></code></pre></div>
+<div class="sourceCode" id="cb35"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb35-1"><a href="rooting-trees.html#cb35-1" tabindex="-1"></a><span class="fu">library</span>(lubridate)</span>
+<span id="cb35-2"><a href="rooting-trees.html#cb35-2" tabindex="-1"></a>metadata<span class="sc">$</span>decimaldate <span class="ot">=</span> <span class="fu">decimal_date</span>(df<span class="sc">$</span>date)</span></code></pre></div>
+<pre><code>## 
+## Attaching package: &#39;lubridate&#39;</code></pre>
+<pre><code>## The following objects are masked from &#39;package:GenomicRanges&#39;:
+## 
+##     intersect, setdiff, union</code></pre>
+<pre><code>## The following object is masked from &#39;package:GenomeInfoDb&#39;:
+## 
+##     intersect</code></pre>
+<pre><code>## The following objects are masked from &#39;package:IRanges&#39;:
+## 
+##     %within%, intersect, setdiff, union</code></pre>
+<pre><code>## The following objects are masked from &#39;package:S4Vectors&#39;:
+## 
+##     intersect, second, second&lt;-, setdiff, union</code></pre>
+<pre><code>## The following objects are masked from &#39;package:BiocGenerics&#39;:
+## 
+##     intersect, setdiff, union</code></pre>
+<pre><code>## The following objects are masked from &#39;package:base&#39;:
+## 
+##     date, intersect, setdiff, union</code></pre>
 <table>
 <thead>
 <tr class="header">
@@ -268,22 +293,22 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <td align="left">sample_1</td>
 <td align="left">1990-01-01</td>
 <td align="right">1990</td>
-<td align="left">A</td>
-<td align="left">D</td>
+<td align="left">C</td>
+<td align="left">F</td>
 </tr>
 <tr class="even">
 <td align="left">sample_2</td>
 <td align="left">1991-01-01</td>
 <td align="right">1991</td>
-<td align="left">B</td>
+<td align="left">C</td>
 <td align="left">F</td>
 </tr>
 <tr class="odd">
 <td align="left">sample_3</td>
 <td align="left">1992-01-01</td>
 <td align="right">1992</td>
-<td align="left">C</td>
-<td align="left">F</td>
+<td align="left">B</td>
+<td align="left">D</td>
 </tr>
 <tr class="even">
 <td align="left">sample_4</td>
@@ -303,39 +328,34 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <td align="left">sample_6</td>
 <td align="left">1995-01-01</td>
 <td align="right">1995</td>
-<td align="left">A</td>
-<td align="left">E</td>
+<td align="left">B</td>
+<td align="left">D</td>
 </tr>
 </tbody>
 </table>
-<div class="sourceCode" id="cb35"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb35-1"><a href="rooting-trees.html#cb35-1" tabindex="-1"></a>dates <span class="ot">=</span> metadata<span class="sc">$</span>decimaldate </span>
-<span id="cb35-2"><a href="rooting-trees.html#cb35-2" tabindex="-1"></a><span class="fu">names</span>(dates) <span class="ot">=</span> metadata<span class="sc">$</span>ID</span>
-<span id="cb35-3"><a href="rooting-trees.html#cb35-3" tabindex="-1"></a>dates</span></code></pre></div>
-<pre><code>##  sample_1  sample_2  sample_3  sample_4  sample_5  sample_6  sample_7  sample_8  sample_9 
-##      1990      1991      1992      1993      1994      1995      1996      1997      1998 
-## sample_10 sample_11 sample_12 sample_13 sample_14 sample_15 sample_16 sample_17 sample_18 
-##      1999      2000      2001      2002      2003      2004      2005      2006      2007 
-## sample_19 sample_20 sample_21 
-##      2008      2009      2010</code></pre>
-<div class="sourceCode" id="cb37"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb37-1"><a href="rooting-trees.html#cb37-1" tabindex="-1"></a><span class="fu">roottotip</span>(tree,dates)</span></code></pre></div>
-<p><img src="_main_files/figure-html/unnamed-chunk-39-1.png" width="672" /></p>
+<div class="sourceCode" id="cb43"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb43-1"><a href="rooting-trees.html#cb43-1" tabindex="-1"></a>dates <span class="ot">=</span> metadata<span class="sc">$</span>decimaldate </span>
+<span id="cb43-2"><a href="rooting-trees.html#cb43-2" tabindex="-1"></a><span class="fu">names</span>(dates) <span class="ot">=</span> metadata<span class="sc">$</span>ID</span>
+<span id="cb43-3"><a href="rooting-trees.html#cb43-3" tabindex="-1"></a>dates</span></code></pre></div>
+<pre><code>##  sample_1  sample_2  sample_3  sample_4  sample_5  sample_6  sample_7  sample_8  sample_9 sample_10 
+##      1990      1991      1992      1993      1994      1995      1996      1997      1998      1999 
+## sample_11 sample_12 sample_13 sample_14 sample_15 sample_16 sample_17 sample_18 sample_19 sample_20 
+##      2000      2001      2002      2003      2004      2005      2006      2007      2008      2009 
+## sample_21 
+##      2010</code></pre>
+<div class="sourceCode" id="cb45"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb45-1"><a href="rooting-trees.html#cb45-1" tabindex="-1"></a><span class="fu">roottotip</span>(tree,dates)</span></code></pre></div>
+<p><img src="_main_files/figure-html/unnamed-chunk-40-1.png" width="672" /></p>
 <pre><code>## $rate
 ##     date 
-## 8.810392 
+## 11.57516 
 ## 
 ## $ori
 ## (Intercept) 
-##     1973.29 
+##    1953.572 
 ## 
 ## $pvalue
 ## [1] 0</code></pre>
-<div class="sourceCode" id="cb39"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb39-1"><a href="rooting-trees.html#cb39-1" tabindex="-1"></a>results <span class="ot">=</span> <span class="fu">bactdate</span>(tree,dates)</span>
-<span id="cb39-2"><a href="rooting-trees.html#cb39-2" tabindex="-1"></a>rooted_tree <span class="ot">=</span> results<span class="sc">$</span>tree</span></code></pre></div>
-</div>
-<div id="treetime" class="section level3 hasAnchor" number="8.3.2">
-<h3><span class="header-section-number">8.3.2</span> TreeTime<a href="rooting-trees.html#treetime" class="anchor-section" aria-label="Anchor link to header"></a></h3>
-<p><a href="https://treetime.readthedocs.io/en/latest/tutorials.html">Treetime</a> is a command line tool that can also be used to estimate a time-scaled phylogeny. In this case you will need your tree, your alignment, and your metadata in csv format.</p>
-<div class="sourceCode" id="cb40"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb40-1"><a href="rooting-trees.html#cb40-1" tabindex="-1"></a><span class="ex">treetime</span> <span class="at">--tree</span> fast.tree <span class="at">--dates</span> metadata.csv <span class="at">--outdir</span> treetime_results <span class="at">--date-column</span> date <span class="at">--name-column</span> ID <span class="at">--aln</span> snps.aln</span></code></pre></div>
+<div class="sourceCode" id="cb47"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb47-1"><a href="rooting-trees.html#cb47-1" tabindex="-1"></a>results <span class="ot">=</span> <span class="fu">bactdate</span>(tree,dates)</span>
+<span id="cb47-2"><a href="rooting-trees.html#cb47-2" tabindex="-1"></a>rooted_tree <span class="ot">=</span> results<span class="sc">$</span>tree</span></code></pre></div>
 
 </div>
 </div>

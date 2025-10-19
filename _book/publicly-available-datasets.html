@@ -29,7 +29,7 @@ set in the _output.yml file.</p>" />
 <meta name="author" content="Amber Baton" />
 
 
-<meta name="date" content="2025-09-26" />
+<meta name="date" content="2025-10-19" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -186,7 +186,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <li class="chapter" data-level="6.4" data-path="alignments.html"><a href="alignments.html#detecting-recombination"><i class="fa fa-check"></i><b>6.4</b> Detecting recombination</a></li>
 <li class="chapter" data-level="6.5" data-path="alignments.html"><a href="alignments.html#masking-regions"><i class="fa fa-check"></i><b>6.5</b> Masking regions</a></li>
 <li class="chapter" data-level="6.6" data-path="alignments.html"><a href="alignments.html#coregene"><i class="fa fa-check"></i><b>6.6</b> Core gene alignments</a></li>
-<li class="chapter" data-level="6.7" data-path="alignments.html"><a href="alignments.html#snp-alignment"><i class="fa fa-check"></i><b>6.7</b> SNP alignment</a></li>
+<li class="chapter" data-level="6.7" data-path="alignments.html"><a href="alignments.html#snpalignment"><i class="fa fa-check"></i><b>6.7</b> SNP alignment</a></li>
 <li class="chapter" data-level="6.8" data-path="alignments.html"><a href="alignments.html#vcf-conversion"><i class="fa fa-check"></i><b>6.8</b> VCF conversion</a></li>
 </ul></li>
 <li class="chapter" data-level="7" data-path="building-trees.html"><a href="building-trees.html"><i class="fa fa-check"></i><b>7</b> Building trees</a>
@@ -200,8 +200,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <li class="chapter" data-level="8.2" data-path="rooting-trees.html"><a href="rooting-trees.html#midpoint"><i class="fa fa-check"></i><b>8.2</b> Midpoint</a></li>
 <li class="chapter" data-level="8.3" data-path="rooting-trees.html"><a href="rooting-trees.html#molecular-clock"><i class="fa fa-check"></i><b>8.3</b> Molecular clock</a>
 <ul>
-<li class="chapter" data-level="8.3.1" data-path="rooting-trees.html"><a href="rooting-trees.html#bactdating"><i class="fa fa-check"></i><b>8.3.1</b> BactDating</a></li>
-<li class="chapter" data-level="8.3.2" data-path="rooting-trees.html"><a href="rooting-trees.html#treetime"><i class="fa fa-check"></i><b>8.3.2</b> TreeTime</a></li>
+<li class="chapter" data-level="8.3.1" data-path="rooting-trees.html"><a href="rooting-trees.html#treetime"><i class="fa fa-check"></i><b>8.3.1</b> TreeTime</a></li>
+<li class="chapter" data-level="8.3.2" data-path="rooting-trees.html"><a href="rooting-trees.html#bactdating"><i class="fa fa-check"></i><b>8.3.2</b> BactDating</a></li>
 </ul></li>
 </ul></li>
 <li class="chapter" data-level="" data-path="references.html"><a href="references.html"><i class="fa fa-check"></i>References</a></li>
@@ -258,8 +258,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <span id="cb2-10"><a href="publicly-available-datasets.html#cb2-10" tabindex="-1"></a>  <span class="fu">paste0</span>(<span class="st">&quot;https://&quot;</span>, <span class="fu">unlist</span>(<span class="fu">strsplit</span>(<span class="fu">as.character</span>(df<span class="sc">$</span>fastq_ftp), <span class="st">&quot;;&quot;</span>)))}</span>
 <span id="cb2-11"><a href="publicly-available-datasets.html#cb2-11" tabindex="-1"></a></span>
 <span id="cb2-12"><a href="publicly-available-datasets.html#cb2-12" tabindex="-1"></a><span class="fu">get_fastq_urls</span>(<span class="st">&quot;ERR1880809&quot;</span>)</span></code></pre></div>
-<pre><code>## [1] &quot;https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR188/009/ERR1880809/ERR1880809_1.fastq.gz&quot;
-## [2] &quot;https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR188/009/ERR1880809/ERR1880809_2.fastq.gz&quot;</code></pre>
+<pre><code>## Warning in get_fastq_urls(&quot;ERR1880809&quot;): No FASTQ found for ERR1880809</code></pre>
 <p>You can then download them using the wget function in the command line.</p>
 <div class="sourceCode" id="cb4"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="publicly-available-datasets.html#cb4-1" tabindex="-1"></a><span class="fu">wget</span> https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR188/009/ERR1880809/ERR1880809_1.fastq.gz</span>
 <span id="cb4-2"><a href="publicly-available-datasets.html#cb4-2" tabindex="-1"></a><span class="fu">wget</span> https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR188/009/ERR1880809/ERR1880809_2.fastq.gz</span></code></pre></div>

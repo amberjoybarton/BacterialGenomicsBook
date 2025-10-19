@@ -29,7 +29,7 @@ set in the _output.yml file.</p>" />
 <meta name="author" content="Amber Baton" />
 
 
-<meta name="date" content="2025-09-26" />
+<meta name="date" content="2025-10-19" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -186,7 +186,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <li class="chapter" data-level="6.4" data-path="alignments.html"><a href="alignments.html#detecting-recombination"><i class="fa fa-check"></i><b>6.4</b> Detecting recombination</a></li>
 <li class="chapter" data-level="6.5" data-path="alignments.html"><a href="alignments.html#masking-regions"><i class="fa fa-check"></i><b>6.5</b> Masking regions</a></li>
 <li class="chapter" data-level="6.6" data-path="alignments.html"><a href="alignments.html#coregene"><i class="fa fa-check"></i><b>6.6</b> Core gene alignments</a></li>
-<li class="chapter" data-level="6.7" data-path="alignments.html"><a href="alignments.html#snp-alignment"><i class="fa fa-check"></i><b>6.7</b> SNP alignment</a></li>
+<li class="chapter" data-level="6.7" data-path="alignments.html"><a href="alignments.html#snpalignment"><i class="fa fa-check"></i><b>6.7</b> SNP alignment</a></li>
 <li class="chapter" data-level="6.8" data-path="alignments.html"><a href="alignments.html#vcf-conversion"><i class="fa fa-check"></i><b>6.8</b> VCF conversion</a></li>
 </ul></li>
 <li class="chapter" data-level="7" data-path="building-trees.html"><a href="building-trees.html"><i class="fa fa-check"></i><b>7</b> Building trees</a>
@@ -200,8 +200,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <li class="chapter" data-level="8.2" data-path="rooting-trees.html"><a href="rooting-trees.html#midpoint"><i class="fa fa-check"></i><b>8.2</b> Midpoint</a></li>
 <li class="chapter" data-level="8.3" data-path="rooting-trees.html"><a href="rooting-trees.html#molecular-clock"><i class="fa fa-check"></i><b>8.3</b> Molecular clock</a>
 <ul>
-<li class="chapter" data-level="8.3.1" data-path="rooting-trees.html"><a href="rooting-trees.html#bactdating"><i class="fa fa-check"></i><b>8.3.1</b> BactDating</a></li>
-<li class="chapter" data-level="8.3.2" data-path="rooting-trees.html"><a href="rooting-trees.html#treetime"><i class="fa fa-check"></i><b>8.3.2</b> TreeTime</a></li>
+<li class="chapter" data-level="8.3.1" data-path="rooting-trees.html"><a href="rooting-trees.html#treetime"><i class="fa fa-check"></i><b>8.3.1</b> TreeTime</a></li>
+<li class="chapter" data-level="8.3.2" data-path="rooting-trees.html"><a href="rooting-trees.html#bactdating"><i class="fa fa-check"></i><b>8.3.2</b> BactDating</a></li>
 </ul></li>
 </ul></li>
 <li class="chapter" data-level="" data-path="references.html"><a href="references.html"><i class="fa fa-check"></i>References</a></li>
@@ -229,12 +229,12 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <h1><span class="header-section-number">Chapter 7</span> Building trees<a href="building-trees.html#building-trees" class="anchor-section" aria-label="Anchor link to header"></a></h1>
 <div id="fasttree" class="section level2 hasAnchor" number="7.1">
 <h2><span class="header-section-number">7.1</span> FastTree<a href="building-trees.html#fasttree" class="anchor-section" aria-label="Anchor link to header"></a></h2>
-<p>Once you have created your <a href="#snpalignment">SNP alignment</a> you can create a tree. <a href="building-trees.html#fasttree">FastTree</a> is a good option for creating a approximately-maximum-likelihood phylogenetic tree quickly.</p>
+<p>Once you have created your <a href="alignments.html#snpalignment">SNP alignment</a> you can create a tree. <a href="building-trees.html#fasttree">FastTree</a> is a good option for creating a approximately-maximum-likelihood phylogenetic tree quickly.</p>
 <div class="sourceCode" id="cb30"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb30-1"><a href="building-trees.html#cb30-1" tabindex="-1"></a><span class="ex">FastTree</span> <span class="at">-gtr</span> <span class="at">-nt</span> snps.aln <span class="op">&gt;</span> fast.tree</span></code></pre></div>
 </div>
 <div id="iq-tree" class="section level2 hasAnchor" number="7.2">
 <h2><span class="header-section-number">7.2</span> IQ-TREE<a href="building-trees.html#iq-tree" class="anchor-section" aria-label="Anchor link to header"></a></h2>
-<p><a href="https://iqtree.github.io/">IQ-TREE</a> takes longer and uses more memory, but creates a maximum-likelihood phylogenetic tree. Another advantage of IQ-tree is you can input the number of constant sites (see <a href="#snpalignment">SNP alignment</a>).</p>
+<p><a href="https://iqtree.github.io/">IQ-TREE</a> takes longer and uses more memory, but creates a maximum-likelihood phylogenetic tree. Another advantage of IQ-tree is you can input the number of constant sites (see <a href="alignments.html#snpalignment">SNP alignment</a>).</p>
 <div class="sourceCode" id="cb31"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb31-1"><a href="building-trees.html#cb31-1" tabindex="-1"></a><span class="co">#If you have the file &quot;constant&quot; from the SNP alignment section, you can assign it to a variable and input it into IQ-tree</span></span>
 <span id="cb31-2"><a href="building-trees.html#cb31-2" tabindex="-1"></a><span class="va">CONSTANTS</span><span class="op">=</span><span class="va">$(</span><span class="fu">cat</span> constant<span class="va">)</span></span>
 <span id="cb31-3"><a href="building-trees.html#cb31-3" tabindex="-1"></a><span class="co">#Run IQ-tree- here using a HKY+F+I model</span></span>

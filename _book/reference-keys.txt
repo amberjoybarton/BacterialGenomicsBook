@@ -27,7 +27,7 @@ sub-setting-an-alignment
 detecting-recombination
 masking-regions
 coregene
-snp-alignment
+snpalignment
 vcf-conversion
 building-trees
 fasttree
@@ -36,5 +36,5 @@ rooting-trees
 outgroup
 midpoint
 molecular-clock
-bactdating
 treetime
+bactdating

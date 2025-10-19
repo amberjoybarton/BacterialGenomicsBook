@@ -29,7 +29,7 @@ set in the _output.yml file.</p>" />
 <meta name="author" content="Amber Baton" />
 
 
-<meta name="date" content="2025-09-26" />
+<meta name="date" content="2025-10-19" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -186,7 +186,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <li class="chapter" data-level="6.4" data-path="alignments.html"><a href="alignments.html#detecting-recombination"><i class="fa fa-check"></i><b>6.4</b> Detecting recombination</a></li>
 <li class="chapter" data-level="6.5" data-path="alignments.html"><a href="alignments.html#masking-regions"><i class="fa fa-check"></i><b>6.5</b> Masking regions</a></li>
 <li class="chapter" data-level="6.6" data-path="alignments.html"><a href="alignments.html#coregene"><i class="fa fa-check"></i><b>6.6</b> Core gene alignments</a></li>
-<li class="chapter" data-level="6.7" data-path="alignments.html"><a href="alignments.html#snp-alignment"><i class="fa fa-check"></i><b>6.7</b> SNP alignment</a></li>
+<li class="chapter" data-level="6.7" data-path="alignments.html"><a href="alignments.html#snpalignment"><i class="fa fa-check"></i><b>6.7</b> SNP alignment</a></li>
 <li class="chapter" data-level="6.8" data-path="alignments.html"><a href="alignments.html#vcf-conversion"><i class="fa fa-check"></i><b>6.8</b> VCF conversion</a></li>
 </ul></li>
 <li class="chapter" data-level="7" data-path="building-trees.html"><a href="building-trees.html"><i class="fa fa-check"></i><b>7</b> Building trees</a>
@@ -200,8 +200,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <li class="chapter" data-level="8.2" data-path="rooting-trees.html"><a href="rooting-trees.html#midpoint"><i class="fa fa-check"></i><b>8.2</b> Midpoint</a></li>
 <li class="chapter" data-level="8.3" data-path="rooting-trees.html"><a href="rooting-trees.html#molecular-clock"><i class="fa fa-check"></i><b>8.3</b> Molecular clock</a>
 <ul>
-<li class="chapter" data-level="8.3.1" data-path="rooting-trees.html"><a href="rooting-trees.html#bactdating"><i class="fa fa-check"></i><b>8.3.1</b> BactDating</a></li>
-<li class="chapter" data-level="8.3.2" data-path="rooting-trees.html"><a href="rooting-trees.html#treetime"><i class="fa fa-check"></i><b>8.3.2</b> TreeTime</a></li>
+<li class="chapter" data-level="8.3.1" data-path="rooting-trees.html"><a href="rooting-trees.html#treetime"><i class="fa fa-check"></i><b>8.3.1</b> TreeTime</a></li>
+<li class="chapter" data-level="8.3.2" data-path="rooting-trees.html"><a href="rooting-trees.html#bactdating"><i class="fa fa-check"></i><b>8.3.2</b> BactDating</a></li>
 </ul></li>
 </ul></li>
 <li class="chapter" data-level="" data-path="references.html"><a href="references.html"><i class="fa fa-check"></i>References</a></li>
@@ -319,8 +319,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <span id="cb27-2"><a href="alignments.html#cb27-2" tabindex="-1"></a><span class="ex">panaroo</span> <span class="at">-i</span> <span class="pp">*</span>gff <span class="at">-o</span> panaroo_core <span class="at">--clean-mode</span> strict <span class="at">--alignment</span> core</span></code></pre></div>
 <p>This will create the alignment files core_gene_alignment.aln and core_gene_alignment_filtered.aln within the folder panaroo_core.</p>
 </div>
-<div id="snp-alignment" class="section level2 hasAnchor" number="6.7">
-<h2><span class="header-section-number">6.7</span> SNP alignment<a href="alignments.html#snp-alignment" class="anchor-section" aria-label="Anchor link to header"></a></h2>
+<div id="snpalignment" class="section level2 hasAnchor" number="6.7">
+<h2><span class="header-section-number">6.7</span> SNP alignment<a href="alignments.html#snpalignment" class="anchor-section" aria-label="Anchor link to header"></a></h2>
 <p>The whole-genome alignment files generated in <a href="alignments.html#refbased">Reference-based alignments</a> and <a href="alignments.html#coregene">Core gene alignments</a> can be very large and difficult to work with. <a href="#https://github.com/sanger-pathogens/snp-sites">Snp-sites</a> can be used to work out which regions are constant (you will need this for IQTree) and extract SNPs.</p>
 <div class="sourceCode" id="cb28"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb28-1"><a href="alignments.html#cb28-1" tabindex="-1"></a><span class="co">#Create SNP-only alignment</span></span>
 <span id="cb28-2"><a href="alignments.html#cb28-2" tabindex="-1"></a><span class="ex">snp-sites</span> alignment.aln <span class="at">-o</span> snps.aln</span>
